@@ -1,0 +1,6 @@
+function Inc(x : Integer) returns (xx : Integer)
+begin
+
+	xx := Plus(x,1);
+
+end Inc;
