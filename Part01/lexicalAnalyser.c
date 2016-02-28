@@ -29,6 +29,15 @@ NODE * newName(char * i){
 	return n;
 }
 
+NODE * newNumber(char * i){
+	NODE * n;
+	char * cur = strdup(i);
+	n = (NODE *)malloc(sizeof(NODE));
+	n->tag = NAME;
+	n->f.id = cur;
+	return n;
+}
+
 NODE * newNode(int tag) {  
 	NODE * n;
 	n = (NODE *)malloc(sizeof(NODE));
@@ -238,8 +247,6 @@ NODE * function(){
 			//assign build return node
 			funcRETURN->f.b.n1 = retLPAREN;
 			funcRETURN->f.b.n2 = retRPAREN;
-			lex();
-			
 			//add return node to function Right paren node
 			funcRPAREN->f.b.n1 = funcRETURN;	//)return(arg)
 		}
@@ -247,19 +254,43 @@ NODE * function(){
 	if (symb == IS){
 		NODE * isNode;
 		isNode = newNode(IS);
-		
-		isNode->f.b.n1 = defs();	//assign defs node to IS n1 branch
+		printf("%s %s\n", "test IS ", showSymb(symb));
 		lex();
+		isNode->f.b.n1 = defs();	//assign defs node to IS n1 branch
+
+		funcRPAREN->f.b.n2 = isNode; //	)return(arg)is
 	}
-	funcLPAREN->f.b.n2 = funcRPAREN;	//(args)return(arg) OR function(args)return(arg)is
-	funcNode->f.b.n2 = funcLPAREN;		//function name (args)return(arg) OR function(args)return(arg)is
-	
 	/***********IMPORTANT************
 	** STILL HAVE BEGIN, END
 	*********************************/
-	if (symb == BEGIN){}
-	if(symb == END){}
+	if (symb == TBEGIN){
+		printf("%s %s\n", "test TBENGIN ", showSymb(symb));
+		NODE * beginNode = newNode(BEGIN);
+		//decide on positioning of BEGIN NODE
+		//function signature looks like: function NAME(ARGS)
+		if (RPAREN->f.b.n1 == RETURN && RPAREN->f.b.n2 == NULL){
+			beginNode->f.b.n1 = commands()
+		}
+		//function signature looks like: function NAME(ARGS) RETURN (ARG)
+		else if (RPAREN->f.b.n1.tag == RETURN && RPAREN->f.b.n2 == NULL){
 
+		}
+		//function signature looks like: function NAME(ARGS) IS DEFS
+		else if (RPAREN->f.b.n1 == NULL && RPAREN->f.b.n2.tag == IS){
+
+		}
+		//function signature looks like: function NAME(ARGS) RETURN(ARG) IS DEFS
+		else if (RPAREN->f.b.n1.tag == RETURN && RPAREN->f.b.n1.tag == IS){
+
+		}
+
+	}
+	/*if(symb == END){
+
+	}*/
+
+	funcLPAREN->f.b.n2 = funcRPAREN;	//(args)return(arg) OR function(args)return(arg)is
+	funcNode->f.b.n2 = funcLPAREN;		//function name (args)return(arg) OR function(args)return(arg)is
 	return funcNode;
 
 }
@@ -278,6 +309,37 @@ NODE * name(){
 	}
 	return n;
 }
+
+/**
+* NAME Reccursive Decent
+* */
+NODE * num(){
+	NODE * n;
+	if(yytext == NULL){
+		printf("Error: yytext is null");
+		return n;
+	}
+	else{
+		n = newNumber(yytext);
+	}
+	return n;
+}
+
+/**
+* COMMAND Reccursive Decent
+* */
+NODE * command(){
+	
+}
+
+
+/**
+* COMMANDS Reccursive Decent
+* */
+NODE * commands(){
+
+}
+
 
 /**
 * ARG Reccursive Decent
@@ -308,21 +370,65 @@ NODE * arguments(){
 }
 
 /**
-* DEFS Reccursive Decent
+* TYPE Reccursive Decent
 * */
-NODE * defs(){
-	NODE * defs;
-	defs = newNode(COLON);
-	return defs;
+NODE * Type(){
+	printf("%s %s\n", "test enter Type, symb = ", showSymb(symb));
+
+	NODE * dType;
+
+	/*if types are needed for defs*/
+	/*if (symb == INTEGER){
+		//dType = newNode(INTEGER);
+		lex();
+	}*/
+	if (symb == ARRAYOFSIZE){
+		dType = newNode(ARRAYOFSIZE);
+		lex();
+		if (symb == NUMBER){
+			dType->f.b.n1 = num(); /*still to implement*/
+			lex();
+		}	
+	}
+	printf("%s %s\n", "test before Type return node, symb = ", showSymb(symb));
+	return dType;
 }
+
 
 /**
 * DEF Reccursive Decent
 * */
-NODE * definition(){
+NODE * definit(){
+	printf("%s %s\n", "test enter DEFINIT, symb = ", showSymb(symb));
 	NODE * definition;
 	definition = newNode(COLON);
+	definition->f.b.n1 = name();
+	lex(); lex();
+	if (symb == INTEGER){
+		lex();
+		//definition->f.b.n2 = Type();	//if types are needed for defs
+	}else if(symb == ARRAYOFSIZE){
+		definition->f.b.n2 = Type();
+	}else{
+		error("type", "Expected Type after definition declaration");
+	}
 	return definition;
+}
+
+/**
+* DEFS Reccursive Decent
+* */
+NODE * defs(){
+	printf("%s %s\n", "test enter DEFS, symb = ", showSymb(symb));
+	NODE * d;
+	d = newNode(SEMI);
+
+	d->f.b.n1 = definit();lex();
+	printf("%s %s\n", "test DEFS def returned, symb = ", showSymb(symb));
+	if (symb != TBEGIN){
+		d->f.b.n2 = defs();
+	}
+	return d;
 }
 
 

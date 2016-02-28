@@ -35,6 +35,7 @@ NAME [a-zA-z][A-Za-z0-9]*
 "GreaterThan" 	{return GT;}
 "GreaterEqual" 	{return GEQ;}
 "Main"			{return MAIN;}
+"Type"			{return TYPE;}
 {NUMBER}+ 		{return NUMBER;}
 {NAME}			{return NAME;}
 <<EOF>>			{return EOF;}

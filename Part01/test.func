@@ -1,4 +1,5 @@
-function Inc(x : Integer) returns (xx : Integer)
+function Inc(x : Integer) returns (xx : Integer) is
+i : Integer;
 begin
 
 	xx := Plus(x,1);

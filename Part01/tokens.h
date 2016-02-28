@@ -29,3 +29,4 @@
 #define NUMBER 28
 #define SEMI 29
 #define MAIN 30
+#define TYPE 31
