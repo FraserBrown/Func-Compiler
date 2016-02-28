@@ -3,5 +3,6 @@ i : Integer;
 begin
 
 	xx := Plus(x,1);
+	x := y;
 
 end Inc;

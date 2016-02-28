@@ -208,6 +208,7 @@ NODE * function(){
 	NODE * funcLPAREN;
 	NODE * funcRPAREN;
 	NODE * funcRETURN;
+	NODE * beginNode;
 
 	funcNode = newNode(FUNCTION);
 	funcName = newNode(NAME);
@@ -254,7 +255,6 @@ NODE * function(){
 	if (symb == IS){
 		NODE * isNode;
 		isNode = newNode(IS);
-		printf("%s %s\n", "test IS ", showSymb(symb));
 		lex();
 		isNode->f.b.n1 = defs();	//assign defs node to IS n1 branch
 
@@ -265,32 +265,44 @@ NODE * function(){
 	*********************************/
 	if (symb == TBEGIN){
 		printf("%s %s\n", "test TBENGIN ", showSymb(symb));
-		NODE * beginNode = newNode(BEGIN);
-		//decide on positioning of BEGIN NODE
-		//function signature looks like: function NAME(ARGS)
-		if (RPAREN->f.b.n1 == RETURN && RPAREN->f.b.n2 == NULL){
-			beginNode->f.b.n1 = commands()
-		}
-		//function signature looks like: function NAME(ARGS) RETURN (ARG)
-		else if (RPAREN->f.b.n1.tag == RETURN && RPAREN->f.b.n2 == NULL){
-
-		}
-		//function signature looks like: function NAME(ARGS) IS DEFS
-		else if (RPAREN->f.b.n1 == NULL && RPAREN->f.b.n2.tag == IS){
-
-		}
-		//function signature looks like: function NAME(ARGS) RETURN(ARG) IS DEFS
-		else if (RPAREN->f.b.n1.tag == RETURN && RPAREN->f.b.n1.tag == IS){
-
-		}
-
+		beginNode = newNode(TBEGIN);
+		lex();
+		beginNode->f.b.n1 = commands();
+		printf("%s %s\n", "before END , symb = ", showSymb(symb));	
 	}
-	/*if(symb == END){
+	if(symb == END){
+		lex();
+		NODE * e = newNode(END);
+		e->f.b.n1 = newName(yytext);
+		beginNode->f.b.n2 = e;	//add END node to second Branch of BEGIN node
+		lex();
+		printf("%s %s\n", "end END , symb = ", showSymb(symb));	
+	}
 
-	}*/
+	//decide on positioning of BEGIN NODE
+	//function signature looks like: function NAME(ARGS)
+		if ((funcRPAREN->f.b.n1 == NULL) && (funcRPAREN->f.b.n2 == NULL)){ //beginNode->f.b.n1 = commands();
+			printf("%s\n", "function NAME(ARGS)");
+			funcRPAREN->f.b.n1 = beginNode;
 
-	funcLPAREN->f.b.n2 = funcRPAREN;	//(args)return(arg) OR function(args)return(arg)is
-	funcNode->f.b.n2 = funcLPAREN;		//function name (args)return(arg) OR function(args)return(arg)is
+		}else if (funcRPAREN->f.b.n1 == NULL && funcRPAREN->f.b.n2->tag == IS){ //function NAME(ARGS) IS DEFS
+			printf("%s\n", "function NAME(ARGS) IS DEFS");
+			funcRPAREN->f.b.n2->f.b.n2 = beginNode;
+
+		}else if (funcRPAREN->f.b.n1->tag == RETURN && funcRPAREN->f.b.n2 == NULL){  //function NAME(ARGS) RETURN (ARG)
+			printf("%s\n", "function NAME(ARGS) RETURN (ARG)");
+			funcRPAREN->f.b.n2 = beginNode;
+
+		}else if (funcRPAREN->f.b.n1->tag == RETURN && funcRPAREN->f.b.n2->tag == IS){ 	//function NAME(ARGS) RETURN(ARG) IS DEFS
+			printf("%s\n", "function NAME(ARGS) RETURN(ARG) IS DEFS");
+			funcRPAREN->f.b.n2->f.b.n2 = beginNode;
+
+		}else{
+			printf("%s\n", "BEGIN IF ELSE FAIL" );
+		}
+
+	funcLPAREN->f.b.n2 = funcRPAREN;	//build function node
+	funcNode->f.b.n2 = funcLPAREN;		
 	return funcNode;
 
 }
@@ -325,26 +337,144 @@ NODE * num(){
 	return n;
 }
 
-/**
-* COMMAND Reccursive Decent
-* */
-NODE * command(){
-	
-}
-
 
 /**
 * COMMANDS Reccursive Decent
 * */
 NODE * commands(){
-
+	printf("%s%s\n", "enter COMMANDS, symb = ", showSymb(symb));
+	extern NODE * command();
+	NODE * com;
+	com = command();
+	lex();
+	printf("FUUUUUUUUK %s\n", showSymb(symb) );
+	if(symb != END){  
+		printf("%s\n","YOLOWSWEG" );
+		NODE * c1; 
+		c1 = com;
+		com = newNode(SEMI);
+		com->f.b.n1 = c1;
+		printf("%s%s\n", "mid YOLOWSWEG, symb = ", showSymb(symb));
+		com->f.b.n2 = commands();
+		printf("%s%s\n", "after YOLOWSWEG, symb = ", showSymb(symb));
+		return com;
+	}
+	return com;
 }
 
+/**
+* COMMAND Reccursive Decent
+* */
+NODE * command(){
+	printf("%s%s\n", "enter COMMAND, symb = ", showSymb(symb));
+	extern NODE * assign();
+	extern NODE * ifComm();
+	extern NODE * writeComm();
+	extern NODE * whileComm();
+	extern NODE * block();
+
+	switch(symb){  
+		case NAME: 	return assign();
+		/*case IF: 	lex(); return ifComm();
+		case WHILE: lex(); return whileComm();
+		case TBEGIN: lex(); return block();
+		case WRITE: lex(); return writeComm();*/
+		default:   
+				error("command","BEGIN/IF/INPUT/PRINT/WHILE/identifier expected \n");
+	}
+}
+
+
+/**
+* ASSIGN Reccursive Decent
+* */
+NODE * assign(){
+	printf("%s%s\n", "enter ASSIGN, symb = ", showSymb(symb));
+	extern NODE * expr();
+
+	NODE * a = newNode(ASSIGN);
+	if (symb == LSQBRA){	//left of assign is expression
+		lex();
+		a->f.b.n1 = expr();
+		lex();
+	}else{	//left of assign is a name
+		printf("%s%s\n", "is name ASSIGN, symb = ", showSymb(symb));
+		NODE * i = newName(yytext);
+		a->f.b.n1 = i;
+	}
+	lex();
+	if (symb != ASSIGN){
+		error("assign","name identifier expected \n");
+	}
+	lex();
+	printf("%s%s\n", "after := symb ASSIGN, symb = ", showSymb(symb));
+	a->f.b.n2 = expr();
+	return a;
+}
+
+
+/**
+* EXPRS Reccursive Decent
+* */
+NODE * exprs(){
+	printf("%s%s\n", "enter EXPRS, symb = ", showSymb(symb));
+	extern NODE * expr();
+	NODE * exs; NODE * ex1;
+	ex1 = expr();
+	if (symb == COMMA){	//**********FIX ME
+		printf("%s%s\n", "FRASER test: ", showSymb(symb));
+		exs = newNode(COMMA);
+		lex();
+		exs->f.b.n1 = ex1;
+		exs->f.b.n2 = exprs();
+	}else{
+		return ex1;
+	}
+	return exs;
+}
+/**
+* EXPR Reccursive Decent
+* */
+NODE * expr(){
+	extern NODE * name();
+	printf("%s%s\n", "enter EXPR, symb = ", showSymb(symb));
+	NODE * ex;
+	NODE * n;
+
+	n = name();
+
+	if (symb == NUMBER){
+		n = newNumber(yytext); 
+		lex();
+		printf("BALLS %s\n", n->f.id);
+		return n;
+	}else{lex();}
+	
+	if (symb == LPAREN){
+		printf("%s%s\n", "inside LPAREN if EXPR, symb = ", showSymb(symb));
+		ex = newNode(SEMI);
+		lex();
+		ex->f.b.n1 = n;
+		ex->f.b.n2 = exprs();
+		lex();	// move past RPAREN
+		return ex;
+	}
+	if (symb == LSQBRA){
+		printf("%s%s\n", "inside LSQBRA if EXPR, symb = ", showSymb(symb));
+		ex = expr();
+		lex(); //move past RSQBRA
+		return ex;
+	}
+
+	return n;
+
+}
 
 /**
 * ARG Reccursive Decent
 * */
 NODE * argument(){
+	extern NODE * name();
 	NODE * argument;
 	argument = newNode(COLON);
 	if (symb == NAME){
@@ -358,6 +488,8 @@ NODE * argument(){
 * ARGS Reccursive Decent
 * */
 NODE * arguments(){
+	extern NODE * argument();
+
 	NODE * args;
 	args = newNode(COMMA);
 
@@ -373,8 +505,7 @@ NODE * arguments(){
 * TYPE Reccursive Decent
 * */
 NODE * Type(){
-	printf("%s %s\n", "test enter Type, symb = ", showSymb(symb));
-
+	extern NODE * num();
 	NODE * dType;
 
 	/*if types are needed for defs*/
@@ -390,7 +521,6 @@ NODE * Type(){
 			lex();
 		}	
 	}
-	printf("%s %s\n", "test before Type return node, symb = ", showSymb(symb));
 	return dType;
 }
 
@@ -399,11 +529,15 @@ NODE * Type(){
 * DEF Reccursive Decent
 * */
 NODE * definit(){
-	printf("%s %s\n", "test enter DEFINIT, symb = ", showSymb(symb));
+	extern NODE * Type();
+	extern NODE * name();
+
 	NODE * definition;
 	definition = newNode(COLON);
-	definition->f.b.n1 = name();
+
+	definition->f.b.n1 = name();	//assign 1st branch to name of definition
 	lex(); lex();
+
 	if (symb == INTEGER){
 		lex();
 		//definition->f.b.n2 = Type();	//if types are needed for defs
@@ -419,12 +553,10 @@ NODE * definit(){
 * DEFS Reccursive Decent
 * */
 NODE * defs(){
-	printf("%s %s\n", "test enter DEFS, symb = ", showSymb(symb));
 	NODE * d;
 	d = newNode(SEMI);
 
 	d->f.b.n1 = definit();lex();
-	printf("%s %s\n", "test DEFS def returned, symb = ", showSymb(symb));
 	if (symb != TBEGIN){
 		d->f.b.n2 = defs();
 	}
