@@ -84,7 +84,8 @@ char * showSymb(int symb){
 		case NAME: return "NAME";
 		case NUMBER: return "NUMBER";	
 		case MAIN: return "MAIN";
-		case FUNCNAME: return "FUNCNAME";	
+		case FUNCNAME: return "FUNCNAME";
+		case EXPR:	return "EXPRESSION";	
 		case EOF: return "EOF";
 		default: printf("bad symbol: %d",symb);
    }
@@ -152,6 +153,7 @@ void error(char * rule,char * message){
 * PROGRAM Reccursive Decent
 * */
 NODE * program(){
+	printf("%s%s\n", "enter program(), symb = ", showSymb(symb));
 	extern NODE * functions();
 
 	NODE * p;
@@ -162,6 +164,7 @@ NODE * program(){
 	}else{
 		printf("%s \n", "exit program");
 	}
+	printf("%s%s\n", "exit program(), symb = ", showSymb(symb));
 	return p;
 }
 
@@ -202,6 +205,9 @@ NODE * function(){
 	NODE * n; 	//node for name of function
 	NODE * r;	//return node if needed
 	NODE * is; 	//is node if needed
+	NODE * fun; //function node
+	NODE * beg;	//begin node
+	NODE * e; 	//end node
 
 	lex();	//move to name of function
 	if (symb == NAME){	//start building signature branch of function
@@ -210,7 +216,6 @@ NODE * function(){
 		n = newNode(FUNCNAME);
 		n->f.b.n1 = newName(yytext);
 		lex();
-		
 		if (symb == LPAREN){
 			lex();
 			n->f.b.n2 = args();	//get arguments
@@ -218,7 +223,6 @@ NODE * function(){
 				error(")", "Expected ) after Function Arguments");
 			}
 			lex();
-
 			s->f.b.n1 = n;	//attach function name to signature node
 		}else{error("(", "Expected ( before Function Arguments");}
 	}else {error("NAME", "Expected Name for Function");}
@@ -244,7 +248,28 @@ NODE * function(){
 		}
 		s->f.b.n2 = r;	//attach return node to signature
 	}
-	return s;
+	
+	fun = newNode(FUNCTION);
+	fun->f.b.n1 = s;	//attach signature to function node
+
+	if(symb == TBEGIN){
+		beg = newNode(TBEGIN);//create begin node beg
+		lex();	
+		beg->f.b.n1 = commands();	//attach commands to beg node
+		if (symb == END){
+			e = newNode(END);	//create end node e
+			lex();	//move to name
+			e->f.b.n1 = name();
+			beg->f.b.n2 = e;		//attach e to beg node
+			lex();
+			if (symb != SEMI){
+				error("END", "Expected ; after Function End");
+			}
+		}else{error("END", "Expected END after Commands");}
+	}else{error("FUNCTION", "Expected BEGIN after Function Signature");}
+	
+	fun->f.b.n2 = beg;	
+	return fun;
 }
 
 /**
@@ -358,6 +383,157 @@ NODE * type(){
 	}
 }
 
+
+/**
+* COMMANDS Reccursive Decent
+* */
+NODE * commands(){
+	extern NODE * command();
+	//get function node
+	NODE * c;	//original command node
+	NODE * cs;	//multiple commands node
+	c = command();
+	if (symb == SEMI){
+		lex();
+		if (symb == NAME){
+			cs = newNode(SEMI);
+			cs->f.b.n1 = c;		//store initial function in branch 1
+			cs->f.b.n2 = commands();	//get additional functions via recursion
+			return cs;
+		}
+		return c; 
+	}
+	return c;
+}
+
+
+/**
+* COMMAND Reccursive Decent
+* */
+NODE * command(){
+	extern NODE * assign();
+	extern NODE * ifComm();
+	extern NODE * writeComm();
+	extern NODE * whileComm();
+	extern NODE * block();
+
+	switch(symb){  
+		case NAME: 	return assign();
+		/*case IF: 	lex(); return ifComm();
+		case WHILE: lex(); return whileComm();
+		case TBEGIN: lex(); return block();
+		case WRITE: lex(); return writeComm();*/
+		default:   
+				error("command","BEGIN/IF/INPUT/PRINT/WHILE/identifier expected \n");
+	}
+}
+
+/**
+* ASSIGN Reccursive Decent
+* */
+NODE * assign(){
+	extern NODE * name();
+	extern NODE * expr();
+
+	NODE * a = newNode(ASSIGN);
+	NODE * n = name();
+
+	lex();
+	if (symb == LSQBRA){
+		NODE * lsq = newNode(LSQBRA);
+		lsq->f.b.n1 = n;	//assing name to left sq bracket
+		lex();
+		lsq->f.b.n2 = expr();
+		lex();	//move to right square bracket
+		if (symb != RSQBRA){
+			error("ASSIGN", "Expected ] after assignment expression name[expr]");
+		}
+		a->f.b.n1 = lsq;
+		lex();lex();
+	}else{
+		a->f.b.n1 = n;	//attach name to left branch of assign
+	}
+	//second half of assign 
+	if (symb == ASSIGN){	//if token is assign symbol 
+		lex();
+		if(symb == NAME){
+			a->f.b.n2 = expr();
+			return a;
+		}
+	}
+
+	return a;
+}
+
+
+/**
+* EXPRS Reccursive Decent
+* */
+NODE * exprs(){
+	extern NODE * expr();
+	//get function node
+	NODE * ex;	//original expr node
+	NODE * exs;	//multiple exprs node
+	ex = expr();
+	if (symb == COMMA){
+		lex();
+		if (symb == NAME || NUMBER){
+			exs = newNode(LPAREN);
+			exs->f.b.n1 = ex;		//store initial expr in branch 1
+			exs->f.b.n2 = exprs();	//get additional exprs via recursion
+			return exs;
+		}
+		return ex; 
+	}
+	return ex;
+}
+/**
+* EXPR Reccursive Decent
+* */
+NODE * expr(){
+	extern NODE * exprs();
+	extern NODE * name();
+	extern NODE * num();
+
+	NODE * na = name();
+	NODE * e;
+
+	if (symb == NAME){
+		e = newNode(COMMA);
+		e->f.b.n1 = na;
+	}
+	if (symb == NUMBER){
+		NODE * nu = num();
+
+		/*e->f.b.n1 = nu;*/
+		return nu;
+	}
+	lex();
+	if(symb == LPAREN){
+		e = newNode(EXPR);
+		e->f.b.n1 = na;
+		lex();
+		e->f.b.n2 = exprs();
+		lex();
+		if (symb != RPAREN){
+		}
+		lex();
+		return e;
+	}
+	if (symb == LSQBRA){
+		e = newNode(LSQBRA);
+		e->f.b.n1 = name();
+		lex();
+		e->f.b.n2 = expr();
+		lex();
+		if (symb != RSQBRA){
+			error("EXPR", "Expected ] after EXPRS name[expr]");
+		}
+		return e;
+	}
+	return e;
+
+}
 
 /**
 * NAME Reccursive Decent
