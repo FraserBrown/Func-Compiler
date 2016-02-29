@@ -1,1 +1,1 @@
-flex func.lex && gcc -c lex.yy.c && gcc -c lexicalAnalyser.c && gcc -o mylex lex.yy.o lexicalAnalyser.o && ./mylex test.func
+flex func.lex && gcc -c lex.yy.c && gcc -c lexicalAnalyser2.c && gcc -o mylex lex.yy.o lexicalAnalyser2.o && ./mylex test.func

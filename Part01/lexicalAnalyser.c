@@ -323,7 +323,7 @@ NODE * name(){
 }
 
 /**
-* NAME Reccursive Decent
+* NUMBER Reccursive Decent
 * */
 NODE * num(){
 	NODE * n;

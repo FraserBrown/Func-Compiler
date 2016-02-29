@@ -1,3 +1,5 @@
 1) Are types needed in DEFS in an AST
 
 2) what are some examples of expr in the FUNC language e.g. what would this generate in code: <expr> ::= <name>[(<exprs>) | [ <expr> ] ] | <number>
+
+3) assign() working, although multiple commands not outputing correctly under their own ; is it needed? or is dividing them by := enough?"

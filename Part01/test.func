@@ -1,5 +1,10 @@
 function Inc(x : Integer) returns (xx : Integer) is
 i : Integer;
+x : Integer;
+z : Integer;
+y : Integer;
+
+
 begin
 
 	xx := Plus(x,1);
