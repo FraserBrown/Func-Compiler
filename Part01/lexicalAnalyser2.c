@@ -263,9 +263,16 @@ NODE * function(){
 		beg = newNode(TBEGIN);//create begin node beg
 		lex();
 
-		if (symb == NAME){
+		beg->f.b.n1 = commands();
+
+		/*if (symb == NAME){
+			printf("test1: %s\n", showSymb(symb) );
 			beg->f.b.n1 = commands();	//attach commands to beg node
-		}else{beg->f.b.n1 = commands();}
+		}
+		if(symb == IF){
+			printf("test2: %s\n", showSymb(symb) );
+			beg->f.b.n1 = commands();
+		}*/
 
 		if (symb == END){
 			e = newNode(END);	//create end node e
@@ -404,21 +411,21 @@ NODE * type(){
 * COMMANDS Reccursive Decent
 * */
 NODE * commands(){
+	printf("enter commands(): %s\n", showSymb(symb) );
 	extern NODE * command();
 	//get function node
 	NODE * c;	//original command node
 	NODE * cs;	//multiple commands node
 	c = command();
+	lex();
+	printf("after command()lex(); before SEMI if: %s\n", showSymb(symb) );
 
-	if (symb == SEMI){
-		lex();
-		if (symb == NAME){
+	if (symb == IF || symb ==  NAME || symb ==  WHILE || symb == READ || symb == WRITE){
+			printf("inside IF || NAME || WHILE || READ || WRITE) if, comands: %s\n", showSymb(symb) );
 			cs = newNode(SEMI);
 			cs->f.b.n1 = c;		//store initial function in branch 1
 			cs->f.b.n2 = commands();	//get additional functions via recursion
 			return cs;
-		}
-		return c; 
 	}
 	return c;
 }
@@ -428,54 +435,85 @@ NODE * commands(){
 * COMMAND Reccursive Decent
 * */
 NODE * command(){
+	printf("enter command(): %s\n", showSymb(symb) );
 	extern NODE * assign();
 	extern NODE * ifComm();
 	extern NODE * writeComm();
 	extern NODE * whileComm();
-	extern NODE * block();
+	extern NODE * readComm();
 
 	switch(symb){  
 		case NAME: 	return assign();
-		case IF: 	lex(); return ifComm();
-		/*case WHILE: lex(); return whileComm();
-		case TBEGIN: lex(); return block();
-		case WRITE: lex(); return writeComm();*/
+		case IF: 	return ifComm();
+		case WRITE: return writeComm();
+		case READ: return readComm();
+		/*case WHILE: lex(); return whileComm();*/
 		default:   
 				error("command","BEGIN/IF/INPUT/PRINT/WHILE/identifier expected \n");
 	}
 }
+
+
+/**
+* WRITECOMM Reccursive Decent
+* */
+NODE * writeComm(){
+	extern NODE * expr();
+	lex();
+	NODE * w = expr();
+	//lex();
+	return w;
+}
+/**
+* READCOMM Reccursive Decent
+* */
+NODE * readComm(){
+	extern NODE * name();
+	lex();
+	NODE * w = name();
+	lex();
+	return w;
+}
+
 /**
 * IFCOMM Reccursive Decent
 * */
 NODE * ifComm(){
+	printf("enter ifComm(): %s\n", showSymb(symb) );
 	extern NODE * condExpr();
 	extern NODE * commands();
 
 	NODE * i;
 	NODE * t;
 
-	i = newNode(IF);
+	i = newNode(IF); lex();
 	i->f.b.n1 = condExpr();
-	
-	if (symb != THEN){
-		error("IF","Expected  THEN after IF in IF THEN command\n");
-	}
-	lex();
-	t = commands();
-	if (symb == ELSE){
+	printf("after condExpr(), ifComm: %s\n", showSymb(symb) );
+	if (symb == THEN){
+		//error("IF","Expected  THEN after IF in IF THEN command\n");
 		lex();
-		NODE * e = newNode(ELSE);	//construct else node
-		e->f.b.n1 = t;
-		e->f.b.n2 = commands();
+		t = commands();
+		printf("after commands(), ifComm: %s\n", showSymb(symb) );
+		if (symb == ELSE){
+			printf("ELSE if, ifComm: %s\n", showSymb(symb) );
 
-		i->f.b.n2 = e;	//add else node to if commands node
+			lex();
+			NODE * e = newNode(ELSE);	//construct else node
+			e->f.b.n1 = t;
+			e->f.b.n2 = commands();
+
+			i->f.b.n2 = e;	//add else node to if commands node
+		}
 	}else{
 		i->f.b.n2 = t;	//else set left of if command to then commands
 	}
 
 	if (symb == END){
 		lex(); 
+		printf("testA\n");
+
 		if (symb == IF){
+			printf("test\n");
 			lex();
 		}
 	}
@@ -488,16 +526,18 @@ NODE * ifComm(){
 * CONDEXPR Reccursive Decent
 * */
 NODE * condExpr(){
+	printf("enter condExpr(): %s\n", showSymb(symb) );
 	extern NODE * bop();
 	extern NODE * exprs();
 	//lex();
 	NODE * b = bop();
-	lex();
+	printf("after bop(), condExpr(): %s\n", showSymb(symb) );
 	if (symb == LPAREN){
 		NODE * cond = newNode(LPAREN);
 		cond->f.b.n1 = b;
 		lex();	
-		cond->f.b.n2 = exprs();	
+		cond->f.b.n2 = exprs();
+		printf("after exprs(), condExpr(): %s\n", showSymb(symb) );	
 		if (symb != RPAREN){
 			error("CondEXPR",") expected after expressions \n");
 		}
@@ -513,16 +553,19 @@ NODE * condExpr(){
 * BOP Reccursive Decent
 * */
 NODE * bop(){
+	printf("enter bop(): %s\n", showSymb(symb) );
 	NODE * b;
+	//lex();
 
 	switch(symb){
-		case LT: return newNode(LT); 
-		case LE: return newNode(LE); 
-		case EQ: return newNode(EQ); 
-		case NEQ: return newNode(NEQ); 
+		case LT:  lex(); return newNode(LT); 
+		case LE:  lex(); return newNode(LE); 
+		case EQ:  lex(); return newNode(EQ); 
+		case NEQ: lex(); return newNode(NEQ); 
 		default: 
 			error("Binary Operator","Less/LessEq/Eq/NEq binary operator expected \n");
 	}
+
 	lex();
 	return b;
 
@@ -533,6 +576,8 @@ NODE * bop(){
 * ASSIGN Reccursive Decent
 * */
 NODE * assign(){
+	printf("enter assign(): %s\n", showSymb(symb) );
+
 	extern NODE * name();
 	extern NODE * expr();
 
@@ -562,6 +607,9 @@ NODE * assign(){
 			a->f.b.n2 = expr();
 		}
 	}
+	//lex();
+	printf("exit assign(): %s\n", showSymb(symb) );
+
 	return a;
 }
 

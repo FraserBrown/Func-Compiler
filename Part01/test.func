@@ -1,7 +1,8 @@
 function Inc(x : Integer) returns (xx : Integer) 
 begin
+	a := 1;
 	if Eq(a,b)
-		then x := 1;
-		else y := 0;
+		then read 1;
+		else read 0;
 	end if;
 end Inc;
