@@ -74,10 +74,10 @@ char * showSymb(int symb){
 		case  LOOP: return "LOOP";
 		case  LPAREN: return "(";
 		case  RPAREN: return ")";
-		case  LT: return "LessThan";
-		case  LE: return "LessEqual";
-		case  EQ: return "Equal";
-		case  NEQ: return "NotEqual"; 
+		case  LT: return "Less";
+		case  LE: return "LessEq";
+		case  EQ: return "Eq";
+		case  NEQ: return "NEq"; 
 		case GT: return "GreaterThan";
 		case GEQ: return "GreaterEqual";
 		case NAME: return "NAME";
@@ -160,6 +160,7 @@ NODE * program(){
 	}else{
 		printf("%s \n", "exit program");
 	}
+	printf("%s%s\n", "exit program(), symb = ", showSymb(symb));
 	return p;
 }
 
@@ -264,7 +265,7 @@ NODE * function(){
 
 		if (symb == NAME){
 			beg->f.b.n1 = commands();	//attach commands to beg node
-		}
+		}else{beg->f.b.n1 = commands();}
 
 		if (symb == END){
 			e = newNode(END);	//create end node e
@@ -273,10 +274,10 @@ NODE * function(){
 			beg->f.b.n2 = e;		//attach e to beg node
 			lex();
 			if (symb != SEMI){
-				error("END", "Expected ; after Function End");
+				error("END FUNCTION", "Expected ; after Function End");
 			}
 		}else{
-			error("END", "Expected ; after Function End");
+			error("END FUNCTION", "Expected ; after Function End");
 		} 
 	}else{
 		error("FUNCTION", "Expected BEGIN after Function Signature");
@@ -435,14 +436,98 @@ NODE * command(){
 
 	switch(symb){  
 		case NAME: 	return assign();
-		/*case IF: 	lex(); return ifComm();
-		case WHILE: lex(); return whileComm();
+		case IF: 	lex(); return ifComm();
+		/*case WHILE: lex(); return whileComm();
 		case TBEGIN: lex(); return block();
 		case WRITE: lex(); return writeComm();*/
 		default:   
 				error("command","BEGIN/IF/INPUT/PRINT/WHILE/identifier expected \n");
 	}
 }
+/**
+* IFCOMM Reccursive Decent
+* */
+NODE * ifComm(){
+	extern NODE * condExpr();
+	extern NODE * commands();
+
+	NODE * i;
+	NODE * t;
+
+	i = newNode(IF);
+	i->f.b.n1 = condExpr();
+	
+	if (symb != THEN){
+		error("IF","Expected  THEN after IF in IF THEN command\n");
+	}
+	lex();
+	t = commands();
+	if (symb == ELSE){
+		lex();
+		NODE * e = newNode(ELSE);	//construct else node
+		e->f.b.n1 = t;
+		e->f.b.n2 = commands();
+
+		i->f.b.n2 = e;	//add else node to if commands node
+	}else{
+		i->f.b.n2 = t;	//else set left of if command to then commands
+	}
+
+	if (symb == END){
+		lex(); 
+		if (symb == IF){
+			lex();
+		}
+	}
+
+	return i;
+
+}
+
+/**
+* CONDEXPR Reccursive Decent
+* */
+NODE * condExpr(){
+	extern NODE * bop();
+	extern NODE * exprs();
+	//lex();
+	NODE * b = bop();
+	lex();
+	if (symb == LPAREN){
+		NODE * cond = newNode(LPAREN);
+		cond->f.b.n1 = b;
+		lex();	
+		cond->f.b.n2 = exprs();	
+		if (symb != RPAREN){
+			error("CondEXPR",") expected after expressions \n");
+		}
+		lex();
+		return cond;
+	}else{
+		error("CondEXPR","( expected after binary operator \n");
+	}
+	
+
+}
+/**
+* BOP Reccursive Decent
+* */
+NODE * bop(){
+	NODE * b;
+
+	switch(symb){
+		case LT: return newNode(LT); 
+		case LE: return newNode(LE); 
+		case EQ: return newNode(EQ); 
+		case NEQ: return newNode(NEQ); 
+		default: 
+			error("Binary Operator","Less/LessEq/Eq/NEq binary operator expected \n");
+	}
+	lex();
+	return b;
+
+}
+
 
 /**
 * ASSIGN Reccursive Decent
@@ -471,9 +556,9 @@ NODE * assign(){
 
 	}
 	//second half of assign 
-	if (symb == ASSIGN){	//if token is assign symbol 
+	if (symb == ASSIGN){	//if token is assign symbol ]
 		lex();
-		if(symb == NAME){
+		if(symb == NAME || symb == NUMBER){
 			a->f.b.n2 = expr();
 		}
 	}

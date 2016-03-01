@@ -1,6 +1,7 @@
-
 function Inc(x : Integer) returns (xx : Integer) 
 begin
-	y := a;
-	xx := Plus(x,1,z);
+	if Eq(a,b)
+		then x := 1;
+		else y := 0;
+	end if;
 end Inc;

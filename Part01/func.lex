@@ -28,10 +28,10 @@ NAME [a-zA-z][A-Za-z0-9]*
 "loop" 			{return LOOP;}
 "(" 			{return LPAREN;}
 ")" 			{return RPAREN;}
-"LessThan" 		{return LT;}
-"LessEqual"		{return LE;}
-"Equal" 		{return EQ;}
-"NotEqual" 		{return NEQ;} 
+"Less" 			{return LT;}
+"LessEq"		{return LE;}
+"Eq" 			{return EQ;}
+"NEq" 			{return NEQ;} 
 "GreaterThan" 	{return GT;}
 "GreaterEqual" 	{return GEQ;}
 {NUMBER}+ 		{return NUMBER;}
