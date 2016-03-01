@@ -34,7 +34,6 @@ NAME [a-zA-z][A-Za-z0-9]*
 "NotEqual" 		{return NEQ;} 
 "GreaterThan" 	{return GT;}
 "GreaterEqual" 	{return GEQ;}
-"Main"			{return MAIN;}
 {NUMBER}+ 		{return NUMBER;}
 {NAME}			{return NAME;}
 <<EOF>>			{return EOF;}

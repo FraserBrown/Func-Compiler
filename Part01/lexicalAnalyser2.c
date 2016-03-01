@@ -54,7 +54,6 @@ char * showSymb(int symb){
 	switch(symb){  
 		case  FUNCTION: return "FUNCTION";
 		case  RETURN: return "RETURN";
-		case SIGNATURE: return "SIGNATURE";
 		case  IS: return "IS";
 		case  TBEGIN: return "BEGIN";
 		case  END: return "END";
@@ -83,9 +82,6 @@ char * showSymb(int symb){
 		case GEQ: return "GreaterEqual";
 		case NAME: return "NAME";
 		case NUMBER: return "NUMBER";	
-		case MAIN: return "MAIN";
-		case FUNCNAME: return "FUNCNAME";
-		case EXPR:	return "EXPRESSION";	
 		case EOF: return "EOF";
 		default: printf("bad symbol: %d",symb);
    }
@@ -164,7 +160,6 @@ NODE * program(){
 	}else{
 		printf("%s \n", "exit program");
 	}
-	printf("%s%s\n", "exit program(), symb = ", showSymb(symb));
 	return p;
 }
 
@@ -211,9 +206,9 @@ NODE * function(){
 
 	lex();	//move to name of function
 	if (symb == NAME){	//start building signature branch of function
-		s = newNode(SIGNATURE);
+		s = newNode(LPAREN);
 		
-		n = newNode(FUNCNAME);
+		n = newNode(COMMA);
 		n->f.b.n1 = newName(yytext);
 		lex();
 		if (symb == LPAREN){
@@ -223,11 +218,12 @@ NODE * function(){
 				error(")", "Expected ) after Function Arguments");
 			}
 			lex();
+			
 			s->f.b.n1 = n;	//attach function name to signature node
 		}else{error("(", "Expected ( before Function Arguments");}
 	}else {error("NAME", "Expected Name for Function");}
 
-	if(symb == RETURN){
+	if(symb == RETURN){		//signature has RETURN then IS
 		r = newNode(RETURN);
 		lex();
 		if (symb == LPAREN){
@@ -247,15 +243,29 @@ NODE * function(){
 			}
 		}
 		s->f.b.n2 = r;	//attach return node to signature
+	}else if (symb == IS){	//signature only has IS e.g. function Main() is
+
+		lex();
+		is = newNode(IS);
+
+		is->f.b.n1 = defs();
+
+		if (symb == TBEGIN){
+			s->f.b.n2 = is;	//attach return node to signature
+		}
 	}
 	
 	fun = newNode(FUNCTION);
 	fun->f.b.n1 = s;	//attach signature to function node
 
-	if(symb == TBEGIN){
+	if(symb == TBEGIN){		//create left hand branch of function node
 		beg = newNode(TBEGIN);//create begin node beg
-		lex();	
-		beg->f.b.n1 = commands();	//attach commands to beg node
+		lex();
+
+		if (symb == NAME){
+			beg->f.b.n1 = commands();	//attach commands to beg node
+		}
+
 		if (symb == END){
 			e = newNode(END);	//create end node e
 			lex();	//move to name
@@ -265,8 +275,12 @@ NODE * function(){
 			if (symb != SEMI){
 				error("END", "Expected ; after Function End");
 			}
-		}else{error("END", "Expected END after Commands");}
-	}else{error("FUNCTION", "Expected BEGIN after Function Signature");}
+		}else{
+			error("END", "Expected ; after Function End");
+		} 
+	}else{
+		error("FUNCTION", "Expected BEGIN after Function Signature");
+	}
 	
 	fun->f.b.n2 = beg;	
 	return fun;
@@ -279,6 +293,9 @@ NODE * args(){
 	extern NODE * arg();
 	extern NODE * comma();
 
+	if (symb == RPAREN){
+		return NULL;
+	}
 	NODE * a;
 	a = arg();
 
@@ -346,7 +363,6 @@ NODE * def(){
 	NODE * n;	//node for def name
 	NODE * t;	//node for type 
 	NODE * d = newNode(COLON); 	//def node
-
 	n = name();
 	lex();	//move to colon
 	if (symb != COLON){
@@ -358,6 +374,7 @@ NODE * def(){
 
 	d->f.b.n1 = n;
 	d->f.b.n2 = t;
+
 	return d;
 }
 
@@ -367,8 +384,6 @@ NODE * def(){
 NODE * type(){
 	extern NODE * num();
 	extern NODE * name();
-
-		//type node
 
 	if (symb == INTEGER){
 		NODE * t = newNode(INTEGER);
@@ -393,6 +408,7 @@ NODE * commands(){
 	NODE * c;	//original command node
 	NODE * cs;	//multiple commands node
 	c = command();
+
 	if (symb == SEMI){
 		lex();
 		if (symb == NAME){
@@ -452,16 +468,15 @@ NODE * assign(){
 		lex();lex();
 	}else{
 		a->f.b.n1 = n;	//attach name to left branch of assign
+
 	}
 	//second half of assign 
 	if (symb == ASSIGN){	//if token is assign symbol 
 		lex();
 		if(symb == NAME){
 			a->f.b.n2 = expr();
-			return a;
 		}
 	}
-
 	return a;
 }
 
@@ -477,8 +492,8 @@ NODE * exprs(){
 	ex = expr();
 	if (symb == COMMA){
 		lex();
-		if (symb == NAME || NUMBER){
-			exs = newNode(LPAREN);
+		if (symb == NAME || symb == NUMBER){
+			exs = newNode(COMMA);
 			exs->f.b.n1 = ex;		//store initial expr in branch 1
 			exs->f.b.n2 = exprs();	//get additional exprs via recursion
 			return exs;
@@ -495,32 +510,22 @@ NODE * expr(){
 	extern NODE * name();
 	extern NODE * num();
 
-	NODE * na = name();
+	NODE * na = name();	// get name of expression
 	NODE * e;
 
-	if (symb == NAME){
-		e = newNode(COMMA);
-		e->f.b.n1 = na;
-	}
-	if (symb == NUMBER){
-		NODE * nu = num();
 
-		/*e->f.b.n1 = nu;*/
-		return nu;
-	}
 	lex();
 	if(symb == LPAREN){
-		e = newNode(EXPR);
-		e->f.b.n1 = na;
+		e = newNode(LPAREN);
+		e->f.b.n1 = na;	//name of left hand side of method call
+		lex();	//move to expression in ()
+		e->f.b.n2 = exprs();	//get expression args values
 		lex();
-		e->f.b.n2 = exprs();
-		lex();
+
 		if (symb != RPAREN){
 		}
-		lex();
 		return e;
-	}
-	if (symb == LSQBRA){
+	} else if (symb == LSQBRA){
 		e = newNode(LSQBRA);
 		e->f.b.n1 = name();
 		lex();
@@ -531,7 +536,7 @@ NODE * expr(){
 		}
 		return e;
 	}
-	return e;
+	return na;
 
 }
 

@@ -1,6 +1,6 @@
-function Inc(x : Integer) returns (xx : Integer) is
-i : Integer;
+
+function Inc(x : Integer) returns (xx : Integer) 
 begin
-	xx := Plus(x,1);
-	x := y;
+	y := a;
+	xx := Plus(x,1,z);
 end Inc;
