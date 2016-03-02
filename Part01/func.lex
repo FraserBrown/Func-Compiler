@@ -3,7 +3,7 @@
 %}
 
 NUMBER [0-9]
-NAME [a-zA-z][A-Za-z0-9]*
+NAME [a-zA-Z][A-Za-z0-9]*
 
 %%
 "function"		{return FUNCTION;}
@@ -15,8 +15,6 @@ NAME [a-zA-z][A-Za-z0-9]*
 "Array of Size"	{return ARRAYOFSIZE;}
 "read"			{return READ;}
 "write" 		{return WRITE;}
-"["				{return LSQBRA;}
-"]" 			{return RSQBRA;}
 ":="			{return ASSIGN;}
 ":" 			{return COLON;}
 ";"				{return SEMI;}
@@ -28,12 +26,12 @@ NAME [a-zA-z][A-Za-z0-9]*
 "loop" 			{return LOOP;}
 "(" 			{return LPAREN;}
 ")" 			{return RPAREN;}
+"["				{return LSQBRA;}
+"]" 			{return RSQBRA;}
 "Less" 			{return LT;}
 "LessEq"		{return LE;}
 "Eq" 			{return EQ;}
 "NEq" 			{return NEQ;} 
-"GreaterThan" 	{return GT;}
-"GreaterEqual" 	{return GEQ;}
 {NUMBER}+ 		{return NUMBER;}
 {NAME}			{return NAME;}
 <<EOF>>			{return EOF;}
