@@ -1,46 +1,32 @@
 function Inc(x : Integer) returns (xx : Integer)
 begin
 	xx := Plus(x,1);
-	yy := A[1];
 end Inc;
 
 function MyTimes(x : Integer,y : Integer) returns (res : Integer) is
 	i : Integer;
-	a : Array of Size 6;
 begin
 	res := 0;
 	i := 0;
-		while LessEq(i,y) loop
-			res := Plus(x,res);
-			i := Inc(i);
+	while LessEq(i,y) loop
+		res := Plus(x,res);
+		i := Inc(i);
 		end loop;
-		write y;
+	write y;
 end MyTimes;
-
-function Inc(x : Integer) returns (xx : Integer)
-begin
-	xx := Plus(x,1);
-	yy := A[1];
-end Inc;
-
-function Inc(x : Integer)
-begin
-	xx := Plus(x,1);
-	yy := A[1];
-end Inc;
 
 function Main() is
 	a : Integer;
 	b : Integer;
 	x : Integer;
 	y : Integer;
-	begin
-		read a;
-		read b;
-		x := MyTimes(a,b);
-		y := Times(a,b);
-		if Eq(a,b)
-			then write 1;
-			else write 0;
-		end if;
+begin
+	read a;
+	read b;
+	x := MyTimes(a,b);
+	y := Times(a,b);
+	if Eq(a,b)
+		then write 1;
+		else write 0;
+	end if;
 end Main;
