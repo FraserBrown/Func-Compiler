@@ -15,6 +15,19 @@ extern FILE * yyin;		/* the input file given */
 extern char * yytext;	/* the last match is stored in yytext string */
 extern void printSymb(void);
 
+/**
+* CODE GENERATION DEFINITIONS
+**/
+#define MAXREG 16
+char * registers[MAXREG];		//stack for variable ids (holds variables in free registers)
+int rp;	//pointer to next free funciton regitster.
+#define E1 16	//number for variable "$t8"
+#define E2 17	//number for variable "$t9"
+#define A0 18	//number for variable "$a0"
+#define A1 19	//number for variable "$a1"
+#define A2 20	//number for variable "$a2"
+#define A3 21	//number for variable "$a3"
+
 
 /**
  * NODE DEFINITIONS
@@ -341,7 +354,7 @@ NODE * arg(){
 * DEFS Reccursive Decent
 *	      <DEFS>			   <DEFS>		
 *         /    \		OR     /    \
-*	  <DEF>  <DEFS>		    <DEF>  <NAME>
+*	  <DEF>  <DEFS>		    <DEF>  <DEF>
 * */
 NODE * defs(){
 	extern NODE * def();
@@ -394,9 +407,11 @@ NODE * def(){
 
 /**
 * TYPE Reccursive Decent
-**	      <TYPE>			    <DEFS>		
-*         /    		OR         /      \
-*	  <INTEGER>        <ARRAYOFSIZE>  <NUMBER>
+**	      <TYPE>			    <TYPE>		
+*         /    		OR         /      
+*	  <INTEGER>        <ARRAYOFSIZE> 
+*							/
+*						<NUMBER>
 * */
 NODE * type(){
 	extern NODE * num();
@@ -751,6 +766,98 @@ NODE * num(){
 	return n;
 }
 
+/**
+* Get correct index for function variable
+**/
+checkVar(char * id){ 
+	int i;
+	for(i=0;i<rp;i++){
+		if(strcmp(id,registers[i])==0){
+			return i;
+		}
+	}
+
+	return -1;
+}
+
+/**
+* Builds the register name string
+**/
+char* concat(char *s1, char *s2){
+	char *result = malloc(strlen(s1) + strlen(s2)+1);
+	strcpy(result, s1);
+	strcat(result, s2);
+	return result;
+}
+
+/**
+* returns the register name given the position in regitsters array
+**/
+char * regname(int r){
+	extern char * concat();
+
+	char rnum[2];
+	switch(r){
+		case E1: return "$t8";
+		case E2: return "$t9";
+		case A0: return "$a0";
+		case A1: return "$a1";
+		case A2: return "$a2";
+		case A3: return "$a3";
+		default:
+				if (r < 8){	//$s0-$s7
+					sprintf(rnum, "%d", r);
+					return concat("$s",rnum);
+				}else{	//$t0-$t7
+					sprintf(rnum, "%d", r-8);
+					return concat("$t",rnum);
+				}
+	}
+}
+
+/**
+* check if variable is already defined, if there is enough space to store them
+* stores the variable value in the next free register point in registers array
+**/
+codeVar(NODE * t){ 
+	if(rp==MAXREG){
+		codeerror(NULL,"too many variables");
+	}
+	if(checkvar(t->f.b.n1->f.id)!=-1){
+		codeerror(t,"declared already");
+	}
+	registers[rp] = t->f.b.n1->f.id;
+	rp++;
+}
+
+/**
+* Traverses the AST tree and produces MIPS code in a .asm file
+* perameters: AST Tree t
+**/
+codeTree(NODE * t){
+
+	if(t==NULL){
+		return;
+	}
+
+	switch(t->tag){
+		case SEMI: 		codeTree(t->f.b.n1);	//check right branch for functions
+						return;
+		case FUNCTION: 	codeTree(t->f.b.n1);	//check for more functions or start of a function signatures
+						codeTree(t->f.b.n2); 	//check for more functions or start of begin blocks
+						return;
+		case LPAREN: 	codeSignature(t->f.b.n1); 	//build function signature code
+						codeSignature(t->f.b.n2);	//build return or is code in signature
+						return;
+		case BEGIN:		codeBegin(t->f.b.n1);		//generate code for begin block
+						codeEnd(t->f.b.n2);
+						return;
+		default: 	printf("unknown node: %s\n",
+					showSymb(t->tag));
+					exit(0);
+	}
+}
+
 
 /**
 * Main Method
@@ -763,7 +870,8 @@ int main (int argc, char ** argv){
 	}
 
 	symb = yylex();			//read in first symbol
-	showTree(program(),1);	//build AST, the print tree to terminal
+	NODE * ast_tree = program();
+	showTree(ast_tree,1);	//build AST, the print tree to terminal
 		
 	fclose(yyin);	//close file
 	return 0;

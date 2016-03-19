@@ -1,0 +1,47 @@
+** BASIC SOLUTION
+
+t_basic_1:
+ $s0 should be 1
+
+t_basic_2:
+ should print 1
+
+t_basic_3 (Sum function)
+ should print 15
+
+t_basic_4 (Factorial)
+ should print 24
+
+** BASIC FUNCTION
+
+t_basic_fun_1 
+ $s0 should be 3
+
+t_basic_fun_2 (Factorial)
+ should print 24
+
+t_basic_fun_3 (no arguments)
+ should print 3
+
+** FUNCTIONS 
+
+t_fun1 
+ should print 4
+
+t_fun2 (Factorial)
+ should print 24
+
+t_fun3
+ shuld print 7
+
+t_fun4 (checking that local variables are not overridden)
+ should print 1
+
+** ARRAYS
+
+t_array_1:
+ should print 2 and 5 (actually: 25)
+
+t_array2:
+ should print 5
+
