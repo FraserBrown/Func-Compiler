@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include "tokens.h"
 
 /**
@@ -63,7 +64,7 @@ NODE * newNumber(char * i){
 	NODE * n;
 	char * cur = strdup(i);
 	n = (NODE *)malloc(sizeof(NODE));
-	n->tag = NAME;
+	n->tag = NUMBER;
 	n->f.id = cur;
 	return n;
 }
@@ -769,14 +770,13 @@ NODE * num(){
 /**
 * Get correct index for function variable
 **/
-checkVar(char * id){ 
+int checkVar(char * id){ 
 	int i;
 	for(i=0;i<rp;i++){
 		if(strcmp(id,registers[i])==0){
 			return i;
 		}
 	}
-
 	return -1;
 }
 
@@ -815,18 +815,28 @@ char * regname(int r){
 	}
 }
 
+void codeerror(NODE * t, char * msg){
+	fprintf(stderr, "%s: at tag: %s, id: %s\n", msg, showSymb(t->tag), t->f.id );
+	exit(0);
+}
+
 /**
 * check if variable is already defined, if there is enough space to store them
 * stores the variable value in the next free register point in registers array
 **/
-codeVar(NODE * t){ 
+void codeVar(NODE * t){ 
+	//printf("\n enter codeVar node: %s\n",showSymb(t->tag));
+
+	extern void codeerror();
+	extern void checkvar();
+
 	if(rp==MAXREG){
 		codeerror(NULL,"too many variables");
 	}
-	if(checkvar(t->f.b.n1->f.id)!=-1){
+	if(checkVar((char * )t)!=-1){
 		codeerror(t,"declared already");
 	}
-	registers[rp] = t->f.b.n1->f.id;
+	registers[rp] = (char * )t;
 	rp++;
 }
 
@@ -834,7 +844,11 @@ codeVar(NODE * t){
 * Traverses the AST tree and produces MIPS code in a .asm file
 * perameters: AST Tree t
 **/
-codeTree(NODE * t){
+void codeTree(NODE * t){
+	extern void codeTree();
+	extern void codeSignature();
+	extern void codeBegin();
+	extern void codeEnd();
 
 	if(t==NULL){
 		return;
@@ -847,15 +861,293 @@ codeTree(NODE * t){
 						codeTree(t->f.b.n2); 	//check for more functions or start of begin blocks
 						return;
 		case LPAREN: 	codeSignature(t->f.b.n1); 	//build function signature code
+						//printf("TRAVERSE RETURN/IS BRANCH\n");
 						codeSignature(t->f.b.n2);	//build return or is code in signature
 						return;
-		case BEGIN:		codeBegin(t->f.b.n1);		//generate code for begin block
+		case TBEGIN:	//printf("TRAVERSE TBEGIN BRANCH\n");
+						codeBegin(t->f.b.n1);		//generate code for begin block
 						codeEnd(t->f.b.n2);
 						return;
-		default: 	printf("unknown node: %s\n",
+		default: 	printf("unknown node in codeTree: %s\n",
 					showSymb(t->tag));
 					exit(0);
 	}
+}
+
+/**
+* Starts to build code for the signature of the function
+**/
+void codeSignature(NODE * t){
+	//printf("\n enter codeSignature node: %s\n",showSymb(t->tag));
+	extern void codeName();
+	extern void codeReturn();
+	extern void codeIs();
+
+	if (t == NULL){
+		return;
+	}
+
+	switch (t->tag){
+		case COMMA: codeName(t->f.b.n1);
+					if (t->f.b.n2 != NULL){codeName(t->f.b.n2);}
+					return;
+		case RETURN: codeReturn(t->f.b.n1);
+					 codeReturn(t->f.b.n2);
+					 return;
+		case IS:	 codeIs(t->f.b.n1);
+					 return;
+		default: 	printf("unknown node in codeSignature: %s\n",
+					showSymb(t->tag));
+					exit(0);
+	}
+}
+
+/**
+*	deals with names of variables / functions and calls to build any arguments if needed for return statements
+**/
+void codeName(NODE * t){
+	extern void codeArgs();
+
+	if (t == NULL){
+		return;
+	}
+
+	//printf("\n enter codeName node: %s\n",showSymb(t->tag));
+
+	switch(t->tag){
+		case NAME:	//printf("\n enter codeName:CASENAME NodeValue: %s\n",t->f.id);
+
+					if (strcmp(t->f.id,"Main") == 0){
+						printf("\n\t .text\n");
+						printf("main: \n");
+					}
+					//printf("before return codeName CASENAME\n");
+					return;
+					
+		case COMMA:	//codeArgs(t->f.b.n1);
+					//codeArgs(t->f.b.n1);
+					return;
+		default: 	printf("unknown node in codeName: %s\n",
+					showSymb(t->tag));
+					exit(0);
+	}
+}
+
+
+/**
+*	generates code for return section of a function and initialises IS code generation
+**/
+void codeReturn(NODE * t){
+	extern void codeName();
+	extern void codeIs();
+
+	if (t == NULL){
+		return;
+	}
+
+	switch(t->tag){
+		case NAME:	codeName(t);
+					return;
+		case IS:	codeIs(t->f.b.n1);
+					return;
+		default: 	printf("unknown node in codeReturn: %s\n",
+					showSymb(t->tag));
+					exit(0);
+	}
+}
+
+/**
+*	generates code for IS section of .fun code AST TREE
+**/
+void codeIs(NODE * t){
+	//printf("\n enter codeIs node: %s\n",showSymb(t->tag));
+	extern void codeDefs();
+	extern void codeDef();
+	if (t == NULL){
+		return;
+	}
+
+	switch(t->tag){
+		case COLON:	codeDef(t->f.b.n1);
+					codeDef(t->f.b.n2);
+					return;
+		case SEMI:	codeDefs(t->f.b.n1);
+					codeDefs(t->f.b.n2);
+					return;
+		default: 	printf("unknown node in codeIs: %s\n",
+					showSymb(t->tag));
+					exit(0);
+	}
+}
+
+
+/**
+*	traverses tree if multiple definitions were declared after IS section of .fun code AST TREE
+**/
+void codeDefs(NODE * t){
+	extern void codeDefs();
+	extern void codeDef();
+
+	if (t == NULL){
+		return;
+	}
+
+	switch(t->tag){
+		case COLON:	codeDef(t->f.b.n1);
+					codeDef(t->f.b.n2);
+					return;
+		case SEMI:	codeDefs(t->f.b.n1);
+					codeDefs(t->f.b.n2);
+					return;
+		default: 	printf("unknown node in codeDefs: %s\n",
+					showSymb(t->tag));
+					exit(0);
+	}
+}
+
+/**
+*	traverses tree if a definition was declared after IS section of .fun code AST TREE
+**/
+void codeDef(NODE * t){
+	//printf("\n enter codeDef node: %s\n",showSymb(t->tag));
+	extern void codeVar();
+
+	if (t == NULL){
+		return;
+	}
+
+	switch(t->tag){
+		case NAME:		codeVar(t->f.b.n1);
+						return;
+		case INTEGER:	return;
+		//case ARRAYOFSIZE:	//array stuff return;
+		default: 	printf("unknown node in codeDef: %s\n",
+					showSymb(t->tag));
+					exit(0);
+	}
+}
+
+/**
+*	traverses tree if a TBEGIN was in .fun code AST TREE
+**/
+void codeBegin(NODE * t){
+	//printf("\n enter codeBegin node: %s\n",showSymb(t->tag));
+	extern void codeVar();
+	extern void codeAssign();
+	extern void codeCommands();
+
+	if (t == NULL){
+		return;
+	}
+
+	switch(t->tag){
+		case SEMI:		codeCommands(t->f.b.n1);
+						codeBegin(t->f.b.n2);
+						return;
+		case ASSIGN:	codeAssign(t);
+						return;
+		case INTEGER:	return;
+		//case ARRAYOFSIZE:	//array stuff return;
+		default: 	printf("unknown node in codeAssigntag: %s id: %s\n",showSymb(t->tag), t->f.id);
+					exit(0);
+	}
+}
+
+
+/**
+*	traverses tree if a TBEGIN was in .fun code AST TREE
+**/
+void codeCommands(NODE * t){
+	//printf("\n enter codeBegin node: %s\n",showSymb(t->tag));
+	extern void codeVar();
+	extern void codeAssign();
+
+	if (t == NULL){
+		return;
+	}
+
+	switch(t->tag){
+		case IF:		return;
+		case ASSIGN:	codeAssign(t);	//get left branch assign statement
+						//codeAssign(t->f.b.n2);
+						return;
+		case INTEGER:	return;
+		//case ARRAYOFSIZE:	//array stuff return;
+		default: 	printf("unknown node in codeCommands tag: %s id: %s\n",showSymb(t->tag), t->f.id);
+					exit(0);
+	}
+}
+
+
+/**
+*	traverses tree further if ASSIGN node was in .fun code AST TREE 
+*	peramters:   :=				 :=
+*				/  \	 OR		/  \
+*			<NAME> <NUM>	<NAME> <NAME>
+**/
+void codeAssign(NODE * t){
+	extern int checkVar();
+	extern void codeerror();
+	extern void codeExp();
+
+	//printf("\n enter codeAssign node: %s\n",showSymb(t->tag));
+	int reg;
+	reg = checkVar(t->f.b.n1->f.id);
+	if(reg==-1){
+		codeerror(t->f.b.n1,"not declared");
+	}
+	codeExp(reg,t->f.b.n2); return;
+}
+
+/**
+*	
+**/
+void codeExp(int RD,NODE * e){
+	//printf("\n enter codeExp node: %s\n",showSymb(e->tag));
+	extern char * regname();
+	extern int check_string_isDigit();
+	extern void codeerror();
+	
+	int reg;
+
+	if (check_string_isDigit(e->f.id)){		//right value of assign is a number
+		printf("\tli %s,%s\n", regname(RD),e->f.id);	//print MIPS command to terminal
+		return;
+
+	}else{	//right value is a predefined variable
+		printf("%s\n", e->f.id);
+		reg = checkVar(e->f.id);	//check variable hasnt been already declared
+		printf("%d\n", reg);
+		if(reg == -1){
+			codeerror(e,"not declared");
+		}
+		printf("\tmove %s,%s\n", regname(RD),regname(reg));	//print MIPS command to terminal
+		return;
+	}
+}
+
+void codeEnd(NODE * t){
+	//check 
+	if (strcmp(t->f.b.n1->f.id,"Main") == 0){
+		return; //end of program
+	}else{
+		//jump back to $ra
+	}
+}
+
+/**
+*	used for variable type checking
+**/
+int check_string_isDigit(char* s) {
+  int string_len = strlen(s);
+
+  for(int i = 0; i < string_len; ++i) {
+    //character is not a digit
+    if(!isdigit(s[i])){
+      	return 0;
+    }
+  }
+  return 1;	//character is digit(s)
 }
 
 
@@ -869,9 +1161,13 @@ int main (int argc, char ** argv){
 		  exit(0);
 	}
 
+	rp=0;
+
 	symb = yylex();			//read in first symbol
 	NODE * ast_tree = program();
 	showTree(ast_tree,1);	//build AST, the print tree to terminal
+
+	codeTree(ast_tree);
 		
 	fclose(yyin);	//close file
 	return 0;
