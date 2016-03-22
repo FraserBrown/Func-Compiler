@@ -1067,9 +1067,9 @@ void codeCommands(NODE * t){
 	}
 
 	switch(t->tag){
-		case IF:		return;
+		case IF:		codeIf(t);
+						return;
 		case ASSIGN:	codeAssign(t);	//get left branch assign statement
-						//codeAssign(t->f.b.n2);
 						return;
 		case INTEGER:	return;
 		//case ARRAYOFSIZE:	//array stuff return;
@@ -1077,6 +1077,76 @@ void codeCommands(NODE * t){
 					exit(0);
 	}
 }
+
+
+/**
+*	
+**/
+void codeIf(NODE * t){
+	printf("\n enter codeif node: %s\n",showSymb(t->tag)); 
+	if (t == NULL){
+		return;
+	}
+	switch(t->tag){
+		case IF: 	codeIf(t->f.b.n1);
+					codeIf(t->f.b.n2);
+					return;
+		case LPAREN:	codeBop(t);	//left node is name of bop right is expressions
+						return;
+		
+
+	}
+}
+
+
+/**
+*	
+**/
+void codeBop(NODE * t){
+	printf("\n enter codeBop node: %s\n",showSymb(t->tag)); 
+	if (t == NULL){
+		return;
+	}
+
+	//extract name of binary operator
+	char * bopName;
+	switch(t->f.b.n1->tag){
+		case LT:	//todo store current position in $ra value
+					//todo write label for LESS
+					bopName = showSymb(t->f.b.n1->tag);
+					printf("%s\n",bopName);
+					codeLess(t->f.b.n2);	//pass arguments to less machine code generator
+					return;
+		default:
+					printf("unknown bop type in codeBop: %s id: %s\n",showSymb(t->f.b.n1->tag));
+					exit(0);
+	}
+
+}
+
+
+/**
+* generates code for the built in function Less(x,y)
+**/
+void codeLess(NODE * t){
+	printf("\n enter codeLess node: %s\n",showSymb(t->tag));
+	int reg;
+	if (t == NULL){
+		return;
+	}
+
+	switch(t->tag){
+		case LPAREN:	//todo: more binary operators therfore call codeBop
+						codeBop(t);
+						return;
+		case COMMA:		//todo: get left value
+						//todo: get right value
+						//todo: generate less than machine code
+						//todo: generate code to return to $ra value
+	}
+
+}
+
 
 
 /**
@@ -1103,7 +1173,7 @@ void codeAssign(NODE * t){
 *	
 **/
 void codeExp(int RD,NODE * e){
-	//printf("\n enter codeExp node: %s\n",showSymb(e->tag));
+	printf("\n enter codeExp node: %s\n",showSymb(e->tag));
 	extern char * regname();
 	extern int check_string_isDigit();
 	extern void codeerror();
