@@ -1113,8 +1113,6 @@ void codeBop(NODE * t){
 	switch(t->f.b.n1->tag){
 		case LT:	//todo store current position in $ra value
 					//todo write label for LESS
-					bopName = showSymb(t->f.b.n1->tag);
-					printf("%s\n",bopName);
 					codeLess(t->f.b.n2);	//pass arguments to less machine code generator
 					return;
 		default:
