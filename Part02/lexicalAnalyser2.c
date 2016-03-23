@@ -10,6 +10,7 @@
 * Title: Language Processors Coursework Part 1 Func-Compiler
 **/
 int symb;
+//#define DEBUG
 
 extern int yylex(void);	/* returns the next token */
 extern FILE * yyin;		/* the input file given */
@@ -523,7 +524,8 @@ NODE * whileComm(){
 NODE * writeComm(){
 	extern NODE * expr();
 	lex();
-	NODE * w = expr();
+	NODE * w = newNode(WRITE);
+	w->f.b.n1 =  expr();
 	return w;
 }
 
@@ -536,9 +538,10 @@ NODE * writeComm(){
 NODE * readComm(){
 	extern NODE * name();
 	lex();
-	NODE * w = name();
+	NODE * r = newNode(READ);
+	r->f.b.n1 = name();
 	lex();
-	return w;
+	return r;
 }
 
 /**
@@ -847,7 +850,7 @@ void codeVar(NODE * t){
 void codeTree(NODE * t){
 	extern void codeTree();
 	extern void codeSignature();
-	extern void codeBegin();
+	extern void codeCommand();
 	extern void codeEnd();
 
 	if(t==NULL){
@@ -865,7 +868,7 @@ void codeTree(NODE * t){
 						codeSignature(t->f.b.n2);	//build return or is code in signature
 						return;
 		case TBEGIN:	//printf("TRAVERSE TBEGIN BRANCH\n");
-						codeBegin(t->f.b.n1);		//generate code for begin block
+						codeCommand(t->f.b.n1);		//generate code for begin block
 						codeEnd(t->f.b.n2);
 						return;
 		default: 	printf("unknown node in codeTree: %s\n",
@@ -878,7 +881,9 @@ void codeTree(NODE * t){
 * Starts to build code for the signature of the function
 **/
 void codeSignature(NODE * t){
-	//printf("\n enter codeSignature node: %s\n",showSymb(t->tag));
+	#ifdef DEBUG
+		printf("\n enter codeSignature node: %s\n",showSymb(t->tag));
+	#endif
 	extern void codeName();
 	extern void codeReturn();
 	extern void codeIs();
@@ -911,8 +916,9 @@ void codeName(NODE * t){
 	if (t == NULL){
 		return;
 	}
-
-	//printf("\n enter codeName node: %s\n",showSymb(t->tag));
+	#ifdef DEBUG
+		printf("\n enter codeName node: %s\n",showSymb(t->tag));
+	#endif
 
 	switch(t->tag){
 		case NAME:	//printf("\n enter codeName:CASENAME NodeValue: %s\n",t->f.id);
@@ -960,7 +966,10 @@ void codeReturn(NODE * t){
 *	generates code for IS section of .fun code AST TREE
 **/
 void codeIs(NODE * t){
-	//printf("\n enter codeIs node: %s\n",showSymb(t->tag));
+	#ifdef DEBUG
+		printf("\n enter codeIs node: %s\n",showSymb(t->tag));
+	#endif
+
 	extern void codeDefs();
 	extern void codeDef();
 	if (t == NULL){
@@ -1009,7 +1018,9 @@ void codeDefs(NODE * t){
 *	traverses tree if a definition was declared after IS section of .fun code AST TREE
 **/
 void codeDef(NODE * t){
-	//printf("\n enter codeDef node: %s\n",showSymb(t->tag));
+	#ifdef DEBUG
+		printf("\n enter codeDef node: %s\n",showSymb(t->tag));
+	#endif
 	extern void codeVar();
 
 	if (t == NULL){
@@ -1028,13 +1039,19 @@ void codeDef(NODE * t){
 }
 
 /**
-*	traverses tree if a TBEGIN was in .fun code AST TREE
+*	traverses tree if a TBEGIN therefore traverses commands was in .fun code AST TREE
 **/
-void codeBegin(NODE * t){
-	//printf("\n enter codeBegin node: %s\n",showSymb(t->tag));
+void codeCommand(NODE * t){
+	#ifdef DEBUG
+	printf("\n enter codeCommand node: %s nodeLeft: %s nodeRight: %s\n",showSymb(t->tag), showSymb(t->f.b.n1->tag), showSymb(t->f.b.n2->tag));
+	#endif
+
 	extern void codeVar();
 	extern void codeAssign();
 	extern void codeCommands();
+	extern void codeWrite();
+	extern void codeWhile();
+
 
 	if (t == NULL){
 		return;
@@ -1042,25 +1059,33 @@ void codeBegin(NODE * t){
 
 	switch(t->tag){
 		case SEMI:		codeCommands(t->f.b.n1);
-						codeBegin(t->f.b.n2);
+						codeCommand(t->f.b.n2);
 						return;
 		case ASSIGN:	codeAssign(t);
 						return;
 		case INTEGER:	return;
 		//case ARRAYOFSIZE:	//array stuff return;
-		default: 	printf("unknown node in codeAssigntag: %s id: %s\n",showSymb(t->tag), t->f.id);
+		case WRITE:		codeWrite(t->f.b.n1);
+						return;
+		case WHILE:		codeWhile(t);
+						return;
+		default: 	printf("unknown node in codeCommand tag: %s id: %s\n",showSymb(t->tag), t->f.id);
 					exit(0);
 	}
 }
 
-
 /**
-*	traverses tree if a TBEGIN was in .fun code AST TREE
+*	traverses tree if a multple commands was in .fun code AST TREE
 **/
 void codeCommands(NODE * t){
-	//printf("\n enter codeBegin node: %s\n",showSymb(t->tag));
+	#ifdef DEBUG
+		printf("\n enter codeCommandS node: %s nodeLeft: %s nodeRight: %s\n",showSymb(t->tag), showSymb(t->f.b.n1->tag), showSymb(t->f.b.n2->tag));
+	#endif
 	extern void codeVar();
+	extern void codeIf();
 	extern void codeAssign();
+	extern void codeWrite();
+	extern void codeWhile();
 
 	if (t == NULL){
 		return;
@@ -1068,11 +1093,16 @@ void codeCommands(NODE * t){
 
 	switch(t->tag){
 		case IF:		codeIf(t);
+						printf("END: \n"); //print end label for ifstatement
 						return;
 		case ASSIGN:	codeAssign(t);	//get left branch assign statement
 						return;
 		case INTEGER:	return;
 		//case ARRAYOFSIZE:	//array stuff return;
+		case WRITE:		codeWrite(t->f.b.n1);
+						return;
+		case WHILE:		codeWhile(t);
+						return;
 		default: 	printf("unknown node in codeCommands tag: %s id: %s\n",showSymb(t->tag), t->f.id);
 					exit(0);
 	}
@@ -1082,8 +1112,78 @@ void codeCommands(NODE * t){
 /**
 *	
 **/
+void codeWhile(NODE * t){
+	#ifdef DEBUG
+		printf("\n enter codeWhile node: %s nodeLeft: %s nodeRight: %s\n",showSymb(t->tag), showSymb(t->f.b.n1->tag), showSymb(t->f.b.n2->tag));
+	#endif
+
+	extern void codeBop();
+	extern void codeAssign();
+
+	if (t == NULL){
+		return;
+	}
+	switch(t->tag){
+		case WHILE: 	printf("START:\n");
+						codeWhile(t->f.b.n1);
+						codeCommand(t->f.b.n2);
+
+						printf("\tj START\n");
+						printf("END:\n");
+						return;
+		case LPAREN:	codeBop(t);	//left node is name of bop right is expressions
+						return;
+		case ASSIGN:	codeAssign(t);
+						return;
+
+	}
+}
+
+
+/**
+*	Gets predefined variable and sets it to tval
+**/
+void codeMove(NODE * t, char * tval){
+	#ifdef DEBUG
+		printf("\n enter commaCheck() node: %s id: %s\n",showSymb(t->tag), t->f.id);
+	#endif
+
+	extern int check_string_isDigit();
+	extern void codeMathFunc();
+
+
+	char * val;
+	int cv;
+
+	cv = check_string_isDigit(t->f.id);
+	if (cv == 0){
+		if (t->tag == LPAREN){
+			codeMathFunc(t);
+			return;
+		}else{
+			//is variables
+			int reg = checkVar(t->f.id);
+			if (reg == -1){
+				codeerror(t,"not declared");
+			}
+			val = regname(reg);
+			printf("\tmove %s,%s\n", val,tval);	//print MIPS command to terminal
+			return;
+		}
+	}
+
+}
+
+/**
+*	
+**/
 void codeIf(NODE * t){
-	printf("\n enter codeif node: %s\n",showSymb(t->tag)); 
+	#ifdef DEBUG
+		//printf("\n enter codeif node: %s\n",showSymb(t->tag)); 
+	#endif
+
+	extern void codeBop();
+	extern void codeAssign();
 	if (t == NULL){
 		return;
 	}
@@ -1093,7 +1193,8 @@ void codeIf(NODE * t){
 					return;
 		case LPAREN:	codeBop(t);	//left node is name of bop right is expressions
 						return;
-		
+		case ASSIGN:	codeAssign(t);
+						return;
 
 	}
 }
@@ -1103,7 +1204,11 @@ void codeIf(NODE * t){
 *	
 **/
 void codeBop(NODE * t){
-	printf("\n enter codeBop node: %s\n",showSymb(t->tag)); 
+	#ifdef DEBUG
+		printf("\n enter codeBop node: %s\n",showSymb(t->tag)); 
+	#endif
+	extern void codeLess();
+
 	if (t == NULL){
 		return;
 	}
@@ -1111,12 +1216,9 @@ void codeBop(NODE * t){
 	//extract name of binary operator
 	char * bopName;
 	switch(t->f.b.n1->tag){
-		case LT:	//todo store current position in $ra value
-					//todo write label for LESS
-					codeLess(t->f.b.n2);	//pass arguments to less machine code generator
+		case LT:	codeLess(t->f.b.n2);	//pass arguments to less machine code generator
 					return;
-		default:
-					printf("unknown bop type in codeBop: %s id: %s\n",showSymb(t->f.b.n1->tag));
+		default:	printf("unknown bop type in codeBop: %s id: %s\n",showSymb(t->f.b.n1->tag));
 					exit(0);
 	}
 
@@ -1127,8 +1229,16 @@ void codeBop(NODE * t){
 * generates code for the built in function Less(x,y)
 **/
 void codeLess(NODE * t){
-	printf("\n enter codeLess node: %s\n",showSymb(t->tag));
+	#ifdef DEBUG
+		printf("\n enter codeLess node: %s\n",showSymb(t->tag));
+	#endif
+
+	extern int checkVar();
+	extern void commaCheck();
 	int reg;
+	int cv;
+
+
 	if (t == NULL){
 		return;
 	}
@@ -1138,40 +1248,231 @@ void codeLess(NODE * t){
 						codeBop(t);
 						return;
 		case COMMA:		//todo: get left value
+						commaCheck("$t8", t->f.b.n1);
+						//printf("\tli $t8,%s\n", LVal);	//print MIPS command to terminal
+
 						//todo: get right value
+						commaCheck("$t9", t->f.b.n2);
+						//printf("\tli $t9,%s\n", RVal);	//print MIPS command to terminal
+
 						//todo: generate less than machine code
-						//todo: generate code to return to $ra value
+						printf("\tbge $t8,$t9, END\n");	//print MIPS command to terminal
+						//printf("\tli %s,%s\n", LVal,RVal);	//print MIPS command to terminal
+						return;
 	}
 
 }
 
+/**
+*	given one side of a bop command it will return wheather it is a number of a pre defined variable
+**/
+void commaCheck(char * tval, NODE * t){
+	#ifdef DEBUG
+		printf("\n enter commaCheck() node: %s id: %s\n",showSymb(t->tag), t->f.id);
+	#endif
 
+	extern int check_string_isDigit();
+	extern void codeMathFunc();
+
+
+	char * val;
+	int cv;
+
+	cv = check_string_isDigit(t->f.id);
+	if (cv == 0){
+		if (t->tag == LPAREN){
+			codeMathFunc(t);
+			return;
+		}else{
+			//is variables
+			int reg = checkVar(t->f.id);
+			if (reg == -1){
+				codeerror(t,"not declared");
+			}
+			val = regname(reg);
+			printf("\tmove %s,%s\n", tval, val);	//print MIPS command to terminal
+			return;
+		}
+	}else{ //is digit 
+		val = t->f.id;
+		printf("\tli %s,%s\n", tval, val);	//print MIPS command to terminal
+		return;
+	}
+}
+
+/**
+* Generate MIPS code for write function
+**/
+void codeWrite(NODE * t){
+	extern void codeExp();
+	printf("\tli $v0, 1\n");
+	codeExp(A0,t);
+	printf("\tsyscall\n");
+	return;
+}
 
 /**
 *	traverses tree further if ASSIGN node was in .fun code AST TREE 
-*	peramters:   :=				 :=
-*				/  \	 OR		/  \
-*			<NAME> <NUM>	<NAME> <NAME>
+*	peramters:   :=				 :=				 :=
+*				/  \	 OR		/  \	 OR		/  \
+*			<NAME> <NUM>	<NAME> <NAME>   <NAME> <EXPR>
 **/
 void codeAssign(NODE * t){
+	#ifdef DEBUG
+		printf("\n enter codeAssign node: %s nodeLeft: %s ID: %s nodeRight: %s\n",showSymb(t->tag), showSymb(t->f.b.n1->tag), t->f.b.n1->f.id, showSymb(t->f.b.n2->tag));
+	#endif
+
 	extern int checkVar();
 	extern void codeerror();
 	extern void codeExp();
+	extern void codeMathFunc();
 
-	//printf("\n enter codeAssign node: %s\n",showSymb(t->tag));
 	int reg;
-	reg = checkVar(t->f.b.n1->f.id);
-	if(reg==-1){
-		codeerror(t->f.b.n1,"not declared");
+	if (t->f.b.n2->tag == LPAREN){
+			codeMathFunc(t->f.b.n2);
+			return;
+	}else{//??????????????????
+		reg = checkVar(t->f.b.n1->f.id);
+		if(reg == -1){
+			codeerror(t->f.b.n1,"not declared");
+		}
+		codeExp(reg,t->f.b.n2); 
+		return;
 	}
-	codeExp(reg,t->f.b.n2); return;
+}
+
+
+/**
+*	decend built in expression functions in the form
+*		<LPAREN>
+*		 /   \
+*	 <NAME>  <COMMA>
+*	 		  /    \
+*	   <NUM/NAME> <NUM/NAME>
+**/
+void codeMathFunc(NODE * t){
+	#ifdef DEBUG
+		printf("\n enter codeMathFunc node: %s nodeLeft: %s ID: %s nodeRight: %s\n",showSymb(t->tag), showSymb(t->f.b.n1->tag), t->f.b.n1->f.id, showSymb(t->f.b.n2->tag));
+	#endif
+
+	extern void codeerror();
+	extern void codePlus();
+	extern void codeMinus();
+	extern void codeTimes();
+	extern void codeDivide();
+
+	if (t == NULL){
+		return;
+	}
+
+	//depending on math built in function name decend tree and create different MIPS code
+	if(strcmp(t->f.b.n1->f.id, "Plus") == 0){
+		codePlus(t->f.b.n2);			//generate addtion MIPS CODE from arguments
+		return;
+	}else if (strcmp(t->f.b.n1->f.id, "Minus") == 0){
+		codeMinus(t->f.b.n2);			//generate subtraction MIPS CODE from arguments
+		return;
+	}else if(strcmp(t->f.b.n1->f.id, "Times") == 0){
+		codeTimes(t->f.b.n2);			//generate mutiply MIPS CODE from arguments
+		return;
+	}else if(strcmp(t->f.b.n1->f.id, "Divide") == 0){
+		codeDivide(t->f.b.n2);			//generate divide MIPS CODE from arguments
+		return;
+	}else{
+		codeerror(t,"math expression not recognised");
+		exit(0);
+	}
+
+}
+
+/**
+*	generate addition MIPS code from expressions;
+*			  <COMMA>
+*	 	     /       \
+* 	  <NUM/NAME>   <NUM/NAME>
+**/
+void codePlus(NODE * t){
+	extern void codeMove();
+	#ifdef DEBUG
+		printf("\n enter codePlus node: %s\n",showSymb(t->tag)); 
+	#endif
+	extern void commaCheck();
+
+	commaCheck("$t8", t->f.b.n1);
+	commaCheck("$t9", t->f.b.n2);
+	printf("\tadd $t8, $t8, $t9\n");
+	codeMove(t->f.b.n1, "$t8");
+	return;
+
+}
+
+/**
+*	generate Minus MIPS code from expressions;
+*			  <COMMA>
+*	 	     /       \
+* 	  <NUM/NAME>   <NUM/NAME>
+**/
+void codeMinus(NODE * t){
+	extern void codeMove();
+
+	#ifdef DEBUG
+		printf("\n enter codeMinus node: %s\n",showSymb(t->tag)); 
+	#endif
+
+	commaCheck("$t8", t->f.b.n1);
+	commaCheck("$t9", t->f.b.n2);
+	printf("\tsub $t8, $t8, $t9\n");
+	codeMove(t->f.b.n1, "$t8");
+	return;
+}
+
+/**
+*	generate Times MIPS code from expressions;
+*			  <COMMA>
+*	 	     /       \
+* 	  <NUM/NAME>   <NUM/NAME>
+**/
+void codeTimes(NODE * t){
+	extern void codeMove();
+
+	#ifdef DEBUG
+		printf("\n enter codeTimes node: %s\n",showSymb(t->tag)); 
+	#endif
+
+
+	commaCheck("$t8", t->f.b.n1);
+	commaCheck("$t9", t->f.b.n2);
+	printf("\tmul $t8, $t8, $t9\n");
+	codeMove(t->f.b.n1, "$t8");
+	return;
+
+}
+
+/**
+*	generate Divide MIPS code from expressions;
+*			  <COMMA>
+*	 	     /       \
+* 	  <NUM/NAME>   <NUM/NAME>
+**/
+void codeDivide(NODE * t){
+	#ifdef DEBUG
+		printf("\n enter codeDivide node: %s\n",showSymb(t->tag)); 
+	#endif
+
+	commaCheck("$t8", t->f.b.n1);
+	commaCheck("$t9", t->f.b.n2);
+	printf("\tdiv $t8, $t8, $t9\n");
+	codeMove(t->f.b.n1, "$t8");
+	return;
 }
 
 /**
 *	
 **/
 void codeExp(int RD,NODE * e){
-	printf("\n enter codeExp node: %s\n",showSymb(e->tag));
+	#ifdef DEBUG
+		printf("\n enter codeExp node: %s\n",showSymb(e->tag));
+	#endif
 	extern char * regname();
 	extern int check_string_isDigit();
 	extern void codeerror();
@@ -1183,9 +1484,7 @@ void codeExp(int RD,NODE * e){
 		return;
 
 	}else{	//right value is a predefined variable
-		printf("%s\n", e->f.id);
 		reg = checkVar(e->f.id);	//check variable hasnt been already declared
-		printf("%d\n", reg);
 		if(reg == -1){
 			codeerror(e,"not declared");
 		}
@@ -1195,7 +1494,6 @@ void codeExp(int RD,NODE * e){
 }
 
 void codeEnd(NODE * t){
-	//check 
 	if (strcmp(t->f.b.n1->f.id,"Main") == 0){
 		return; //end of program
 	}else{
@@ -1207,15 +1505,18 @@ void codeEnd(NODE * t){
 *	used for variable type checking
 **/
 int check_string_isDigit(char* s) {
-  int string_len = strlen(s);
+	#ifdef DEBUG
+		printf("enter check_string_isDigit with s: %s\n",s );
+  	#endif
+  	int string_len = strlen(s);
 
-  for(int i = 0; i < string_len; ++i) {
-    //character is not a digit
-    if(!isdigit(s[i])){
-      	return 0;
-    }
-  }
-  return 1;	//character is digit(s)
+	  for(int i = 0; i < string_len; ++i) {
+	    //character is not a digit therfore is string
+	    if(!isdigit(s[i])){
+	      	return 0;
+	    }
+	  }
+	  return 1;	//character is digit(s)
 }
 
 
