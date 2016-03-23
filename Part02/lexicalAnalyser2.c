@@ -23,6 +23,7 @@ extern void printSymb(void);
 #define MAXREG 16
 char * registers[MAXREG];		//stack for variable ids (holds variables in free registers)
 int rp;	//pointer to next free funciton regitster.
+char * funcName;
 #define E1 16	//number for variable "$t8"
 #define E2 17	//number for variable "$t9"
 #define A0 18	//number for variable "$a0"
@@ -425,7 +426,7 @@ NODE * type(){
 	}else if (symb == ARRAYOFSIZE){
 		NODE * t = newNode(ARRAYOFSIZE);
 		lex();
-		t->f.b.n1 = num();
+		t->f.b.n1 = name();
 		return t;
 	}else{
 		error("TYPE", "Given Wrong Type for Def expected either Integer or Array of Size <number>");
@@ -652,12 +653,15 @@ NODE * assign(){
 		lsq->f.b.n1 = n;	//assing name to left sq bracket
 		lex();
 		lsq->f.b.n2 = expr();
-		lex();	//move to right square bracket
+		//lex();	//move to right square bracket
 		if (symb != RSQBRA){
+			printf("%s\n", yytext);
+
 			error("ASSIGN", "Expected ] after assignment expression name[expr]");
 		}
+		lex();
 		a->f.b.n1 = lsq;
-		lex();lex();
+		//lex(); lex();
 	}else{	//NAME
 		a->f.b.n1 = n;	//attach name to left branch of assign
 	}
@@ -893,13 +897,15 @@ void codeSignature(NODE * t){
 	}
 
 	switch (t->tag){
-		case COMMA: codeName(t->f.b.n1);
+		case COMMA:	codeName(t->f.b.n1);
 					if (t->f.b.n2 != NULL){codeName(t->f.b.n2);}
 					return;
 		case RETURN: codeReturn(t->f.b.n1);
 					 codeReturn(t->f.b.n2);
 					 return;
 		case IS:	 codeIs(t->f.b.n1);
+					 printf("\t .text \n");
+					 printf("%s \n", funcName);
 					 return;
 		default: 	printf("unknown node in codeSignature: %s\n",
 					showSymb(t->tag));
@@ -921,13 +927,11 @@ void codeName(NODE * t){
 	#endif
 
 	switch(t->tag){
-		case NAME:	//printf("\n enter codeName:CASENAME NodeValue: %s\n",t->f.id);
-
-					if (strcmp(t->f.id,"Main") == 0){
-						printf("\n\t .text\n");
-						printf("main: \n");
+		case NAME:	if (strcmp(t->f.id,"Main") == 0){
+						//printf("\n\t .text\n");
+						//printf("main: \n");
+						funcName = "main:";
 					}
-					//printf("before return codeName CASENAME\n");
 					return;
 					
 		case COMMA:	//codeArgs(t->f.b.n1);
@@ -977,7 +981,8 @@ void codeIs(NODE * t){
 	}
 
 	switch(t->tag){
-		case COLON:	codeDef(t->f.b.n1);
+		case COLON:	if (t->f.b.n2->tag == ARRAYOFSIZE){printf("\t.data\n%s:",t->f.b.n1->f.id);}
+					codeDef(t->f.b.n1);
 					codeDef(t->f.b.n2);
 					return;
 		case SEMI:	codeDefs(t->f.b.n1);
@@ -994,6 +999,9 @@ void codeIs(NODE * t){
 *	traverses tree if multiple definitions were declared after IS section of .fun code AST TREE
 **/
 void codeDefs(NODE * t){
+	#ifdef DEBUG
+		printf("\n enter codeDefs() node: %s nodeLeft: %s rightNode: %s\n",showSymb(t->tag), showSymb(t->f.b.n1->tag), showSymb(t->f.b.n2->tag));
+	#endif
 	extern void codeDefs();
 	extern void codeDef();
 
@@ -1002,7 +1010,8 @@ void codeDefs(NODE * t){
 	}
 
 	switch(t->tag){
-		case COLON:	codeDef(t->f.b.n1);
+		case COLON:	if (t->f.b.n2->tag == ARRAYOFSIZE){printf("\t.data\n%s:",t->f.b.n1->f.id);}
+					codeDef(t->f.b.n1);
 					codeDef(t->f.b.n2);
 					return;
 		case SEMI:	codeDefs(t->f.b.n1);
@@ -1018,6 +1027,7 @@ void codeDefs(NODE * t){
 *	traverses tree if a definition was declared after IS section of .fun code AST TREE
 **/
 void codeDef(NODE * t){
+	extern void codeAOSDef();
 	#ifdef DEBUG
 		printf("\n enter codeDef node: %s\n",showSymb(t->tag));
 	#endif
@@ -1031,11 +1041,51 @@ void codeDef(NODE * t){
 		case NAME:		codeVar(t->f.b.n1);
 						return;
 		case INTEGER:	return;
-		//case ARRAYOFSIZE:	//array stuff return;
+		case ARRAYOFSIZE:	codeAOSDef(t);//array stuff return;
+							return;
 		default: 	printf("unknown node in codeDef: %s\n",
 					showSymb(t->tag));
 					exit(0);
 	}
+}
+void codeAOSAssign(NODE * t){
+	#ifdef DEBUG
+		printf("\n enter codeAOSAssign() node: %s nodeLeft: %s rightNode: %s\n",showSymb(t->tag), showSymb(t->f.b.n1->tag), showSymb(t->f.b.n2->tag));
+	#endif
+	if(t == NULL){
+		return;
+	} 
+
+	//access Array of Size at that value
+	char * nameofArr = t->f.b.n1->f.b.n1->f.id;	//get name of array from AST
+	int accessNumber = atoi(t->f.b.n1->f.b.n2->f.id);	//get access number for array from AST
+
+	printf("\tli $t8,%i \n", accessNumber);	//element to access from array
+	printf("\tli $t9,4 \n");		//word size loaded into temp register
+	printf("\tmul $t8, $t8, $t9 \n");	//muliply access point by word size to get correct point in memory
+	printf("\tli $t9,%s \n", t->f.b.n2->f.id);
+
+	//store Right assign value in array
+	printf("\tsw $t9, %s($t8)\n", nameofArr);
+
+	return;
+}
+
+
+/**
+*	Defines .data segment in mips code when an array is defined 
+**/
+void codeAOSDef(NODE * t){
+	#ifdef DEBUG
+		printf("\n enter codeAOSDef node: %s nodeLeft: %s ID: %s\n",showSymb(t->tag), showSymb(t->f.b.n1->tag), t->f.b.n1->f.id);
+	#endif
+	if (t == NULL){
+		return;
+	}
+	int arrsize = atoi(t->f.b.n1->f.id) * 4;	//times array size ginven in AST by a word size
+	printf("\t .space %i\n", arrsize);
+	return;
+
 }
 
 /**
@@ -1056,7 +1106,6 @@ void codeCommand(NODE * t){
 	if (t == NULL){
 		return;
 	}
-
 	switch(t->tag){
 		case SEMI:		codeCommands(t->f.b.n1);
 						codeCommand(t->f.b.n2);
@@ -1064,7 +1113,6 @@ void codeCommand(NODE * t){
 		case ASSIGN:	codeAssign(t);
 						return;
 		case INTEGER:	return;
-		//case ARRAYOFSIZE:	//array stuff return;
 		case WRITE:		codeWrite(t->f.b.n1);
 						return;
 		case WHILE:		codeWhile(t);
@@ -1079,7 +1127,13 @@ void codeCommand(NODE * t){
 **/
 void codeCommands(NODE * t){
 	#ifdef DEBUG
-		printf("\n enter codeCommandS node: %s nodeLeft: %s nodeRight: %s\n",showSymb(t->tag), showSymb(t->f.b.n1->tag), showSymb(t->f.b.n2->tag));
+		char*nr;
+		if(t->f.b.n2 != NULL){
+			nr = showSymb(t->f.b.n2->tag);
+		}else {
+			nr = "NULL";
+		}
+		printf("\n enter codeCommandS node: %s nodeLeft: %s nodeRight: %s\n",showSymb(t->tag), showSymb(t->f.b.n1->tag), nr);
 	#endif
 	extern void codeVar();
 	extern void codeIf();
@@ -1098,7 +1152,6 @@ void codeCommands(NODE * t){
 		case ASSIGN:	codeAssign(t);	//get left branch assign statement
 						return;
 		case INTEGER:	return;
-		//case ARRAYOFSIZE:	//array stuff return;
 		case WRITE:		codeWrite(t->f.b.n1);
 						return;
 		case WHILE:		codeWhile(t);
@@ -1304,11 +1357,34 @@ void commaCheck(char * tval, NODE * t){
 * Generate MIPS code for write function
 **/
 void codeWrite(NODE * t){
+	#ifdef DEBUG
+		printf("\n enter codeWrite() node: %s \n",showSymb(t->tag));
+	#endif
 	extern void codeExp();
-	printf("\tli $v0, 1\n");
-	codeExp(A0,t);
-	printf("\tsyscall\n");
-	return;
+	extern void codeMove();
+
+	if (t->tag == LSQBRA){
+		char * nameofArr = t->f.b.n1->f.id;	//get name of array from AST
+		int accessNumber = atoi(t->f.b.n2->f.id);	//get access number for array from AST
+
+		//load section of the array
+		printf("\tli $t8,%i \n", accessNumber);	//element to access from array
+		printf("\tli $t9,4 \n");		//word size loaded into temp register
+		printf("\tmul $t8, $t8, $t9 \n");	//muliply access point by word size to get correct point in memory
+		printf("\tlw $t9, %s($t8)\n", nameofArr);
+		
+		//write value
+		printf("\tli $v0, 1\n");
+		printf("\tmove $a0, $t9\n");
+		printf("\tsyscall\n");
+		return;
+	}else{
+		printf("\tli $v0, 1\n");
+		codeExp(A0,t);
+		printf("\tsyscall\n");
+		return;
+	}
+	
 }
 
 /**
@@ -1326,11 +1402,15 @@ void codeAssign(NODE * t){
 	extern void codeerror();
 	extern void codeExp();
 	extern void codeMathFunc();
+	extern void codeAOSAssign();
 
 	int reg;
 	if (t->f.b.n2->tag == LPAREN){
 			codeMathFunc(t->f.b.n2);
 			return;
+	}else if (t->f.b.n1->tag == LSQBRA){
+		codeAOSAssign(t);
+		return;
 	}else{//??????????????????
 		reg = checkVar(t->f.b.n1->f.id);
 		if(reg == -1){

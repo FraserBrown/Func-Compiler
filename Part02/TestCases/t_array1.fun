@@ -1,5 +1,5 @@
 function Main () is
- a : Array of size 2;
+ a : Array of Size 2;
 begin
   a[0] := 2;
   a[1] := 5;
