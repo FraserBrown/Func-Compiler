@@ -1048,14 +1048,31 @@ void codeDef(NODE * t){
 					exit(0);
 	}
 }
+
+
+
 void codeAOSAssign(NODE * t){
+	extern void codeMathFunc();
+	extern void popFromSP();
+
 	#ifdef DEBUG
 		printf("\n enter codeAOSAssign() node: %s nodeLeft: %s rightNode: %s\n",showSymb(t->tag), showSymb(t->f.b.n1->tag), showSymb(t->f.b.n2->tag));
 	#endif
+
 	if(t == NULL){
 		return;
 	} 
 
+	if (t->f.b.n2->tag == LPAREN){
+		codeMathFunc(t->f.b.n2);
+		int accessNumber = atoi(t->f.b.n1->f.b.n2->f.id);	//get access number for array from AST
+
+		printf("\tli $t8,%i \n", accessNumber);	//element to access from array
+		printf("\tli $t9,4 \n");		//word size loaded into temp register
+		printf("\tmul $t8, $t8, $t9 \n");	//muliply access point by word size to get correct point in memory
+		popFromSP("$s0");
+		return;
+	}
 	//access Array of Size at that value
 	char * nameofArr = t->f.b.n1->f.b.n1->f.id;	//get name of array from AST
 	int accessNumber = atoi(t->f.b.n1->f.b.n2->f.id);	//get access number for array from AST
@@ -1198,7 +1215,7 @@ void codeWhile(NODE * t){
 **/
 void codeMove(NODE * t, char * tval){
 	#ifdef DEBUG
-		printf("\n enter commaCheck() node: %s id: %s\n",showSymb(t->tag), t->f.id);
+		printf("\n enter codeMove() node: %s id: %s\n",showSymb(t->tag), t->f.id);
 	#endif
 
 	extern int check_string_isDigit();
@@ -1316,6 +1333,16 @@ void codeLess(NODE * t){
 
 }
 
+void pushToSP(char * reg){
+	printf ("\taddi $sp,$sp,-4\n");
+	printf("\tsw %s,0($sp) \n", reg); // move register value to stack
+}
+
+void popFromSP(char * reg){
+	printf ("\tlw %s,0($sp)\n", reg);
+	printf("\taddi $sp,$sp,4 \n");
+}
+
 /**
 *	given one side of a bop command it will return wheather it is a number of a pre defined variable
 **/
@@ -1330,6 +1357,21 @@ void commaCheck(char * tval, NODE * t){
 
 	char * val;
 	int cv;
+
+	if (t->tag == LSQBRA){
+		char * nameofArr = t->f.b.n1->f.id;	//get name of array from AST
+		int accessNumber = atoi(t->f.b.n2->f.id);	//get access number for array from AST
+
+		//load section of the array
+		printf("\tli $t8,%i \n", accessNumber);	//element to access from array
+		printf("\tli $t9,4 \n");		//word size loaded into temp register
+		printf("\tmul $t8, $t8, $t9 \n");	//muliply access point by word size to get correct point in memory
+		printf("\tlw $t9, %s($t8)\n", nameofArr);
+
+		//push contents of array to stack 
+		pushToSP("$t9");
+		return;
+	}
 
 	cv = check_string_isDigit(t->f.id);
 	if (cv == 0){
@@ -1405,12 +1447,14 @@ void codeAssign(NODE * t){
 	extern void codeAOSAssign();
 
 	int reg;
-	if (t->f.b.n2->tag == LPAREN){
-			codeMathFunc(t->f.b.n2);
-			return;
-	}else if (t->f.b.n1->tag == LSQBRA){
+	
+	if (t->f.b.n1->tag == LSQBRA){
 		codeAOSAssign(t);
 		return;
+	}
+	else if (t->f.b.n2->tag == LPAREN){
+			codeMathFunc(t->f.b.n2);
+			return; 
 	}else{//??????????????????
 		reg = checkVar(t->f.b.n1->f.id);
 		if(reg == -1){
@@ -1480,10 +1524,16 @@ void codePlus(NODE * t){
 
 	commaCheck("$t8", t->f.b.n1);
 	commaCheck("$t9", t->f.b.n2);
+	if (t->f.b.n1->tag == LSQBRA){
+		//pop answer from stack
+		popFromSP("$t8");
+		printf("\tadd $t8, $t8, $t9\n");
+		pushToSP("$t8");
+		return;
+	}
 	printf("\tadd $t8, $t8, $t9\n");
 	codeMove(t->f.b.n1, "$t8");
 	return;
-
 }
 
 /**
@@ -1501,6 +1551,15 @@ void codeMinus(NODE * t){
 
 	commaCheck("$t8", t->f.b.n1);
 	commaCheck("$t9", t->f.b.n2);
+	if (t->f.b.n1->tag == LSQBRA){
+		//pop answer from stack
+		popFromSP("$t8");
+		printf("\tadd $t8, $t8, $t9\n");
+		printf("\tmove $t9, $t8\n");
+		pushToSP("$t9");	//push answer to calculation to stack
+
+		return;
+	}
 	printf("\tsub $t8, $t8, $t9\n");
 	codeMove(t->f.b.n1, "$t8");
 	return;
@@ -1522,6 +1581,15 @@ void codeTimes(NODE * t){
 
 	commaCheck("$t8", t->f.b.n1);
 	commaCheck("$t9", t->f.b.n2);
+	if (t->f.b.n1->tag == LSQBRA){
+		//pop answer from stack
+		popFromSP("$t8");
+		printf("\tadd $t8, $t8, $t9\n");
+		printf("\tmove $t9, $t8\n");
+		pushToSP("t9");	//push answer to calculation to stack
+
+		return;
+	}
 	printf("\tmul $t8, $t8, $t9\n");
 	codeMove(t->f.b.n1, "$t8");
 	return;
@@ -1541,6 +1609,15 @@ void codeDivide(NODE * t){
 
 	commaCheck("$t8", t->f.b.n1);
 	commaCheck("$t9", t->f.b.n2);
+	if (t->f.b.n1->tag == LSQBRA){
+		//pop answer from stack
+		popFromSP("$t8");
+		printf("\tadd $t8, $t8, $t9\n");
+		printf("\tmove $t9, $t8\n");
+		pushToSP("t9");	//push answer to calculation to stack
+
+		return;
+	}
 	printf("\tdiv $t8, $t8, $t9\n");
 	codeMove(t->f.b.n1, "$t8");
 	return;
@@ -1614,7 +1691,7 @@ int main (int argc, char ** argv){
 
 	symb = yylex();			//read in first symbol
 	NODE * ast_tree = program();
-	showTree(ast_tree,1);	//build AST, the print tree to terminal
+	//showTree(ast_tree,1);	//build AST, the print tree to terminal
 
 	codeTree(ast_tree);
 		
