@@ -1,2 +1,1 @@
-lex func.lex && gcc -c lex.yy.c && gcc -c lexicalAnalyser2.c && gcc -o mylex lex.yy.o lexicalAnalyser2.o && ./mylex TestCases/t_array1.fun >myprogram.asm
-
+lex func.lex && gcc -c lex.yy.c && gcc -c func-compiler.c && gcc -o mylex lex.yy.o func-compiler.o && ./mylex TestCases/t_array1.fun > myprogram.asm
